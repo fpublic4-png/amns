@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:myapp/student_dashboard.dart';
+import 'dart:developer' as developer;
 
 class StudentLoginPage extends StatefulWidget {
   const StudentLoginPage({super.key});
@@ -17,26 +18,30 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
   Future<void> _login() async {
     try {
       final students = FirebaseFirestore.instance.collection('students');
-      final studentQuery = await students.where('student_id', isEqualTo: _studentIdController.text).get();
+      // Assume the student ID field is 'studentId' based on the teacher schema
+      final studentQuery = await students
+          .where('studentId', isEqualTo: _studentIdController.text.trim())
+          .where('password', isEqualTo: _passwordController.text)
+          .get();
 
       if (studentQuery.docs.isNotEmpty) {
-        final studentDoc = studentQuery.docs.first;
-        final studentData = studentDoc.data();
-        if (studentData['password'] == _passwordController.text) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const StudentDashboard(),
-            ),
-          );
-        } else {
-          _showErrorDialog('Invalid password.');
-        }
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const StudentDashboard(),
+          ),
+        );
       } else {
-        _showErrorDialog('Student ID not found.');
+        _showErrorDialog('Invalid Student ID or password.');
       }
-    } catch (e) {
-      _showErrorDialog('An error occurred. Please try again.');
+    } catch (e, s) {
+      developer.log(
+        'Login failed due to Firestore error. Check for an index creation link in the error message.',
+        name: 'myapp.student_login',
+        error: e,
+        stackTrace: s,
+      );
+      _showErrorDialog('An error occurred. Please check the debug console for details.');
     }
   }
 
@@ -145,9 +150,9 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
                   onPressed: _login,
                   icon: const Icon(Icons.arrow_forward, color: Colors.white),
                   label: const Text('Sign In', style: TextStyle(fontSize: 18)),
-                   style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white, 
-                    backgroundColor: Colors.green, // Corrected from primary
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.green,
                     minimumSize: const Size(double.infinity, 56),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8.0),
