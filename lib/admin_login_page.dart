@@ -1,7 +1,8 @@
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:myapp/admin_dashboard.dart';
+import 'dart:developer' as developer;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AdminLoginPage extends StatefulWidget {
   const AdminLoginPage({super.key});
@@ -14,30 +15,58 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedCredentials();
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getString('userRole') == 'admin') {
+      final userId = prefs.getString('userId');
+      if (userId != null) {
+        setState(() {
+          _emailController.text = userId;
+          _rememberMe = true;
+        });
+      }
+    }
+  }
 
   Future<void> _login() async {
     try {
       final admins = FirebaseFirestore.instance.collection('admins');
-      final adminQuery = await admins.where('email', isEqualTo: _emailController.text).get();
+      final adminQuery = await admins
+          .where('email', isEqualTo: _emailController.text.trim())
+          .where('password', isEqualTo: _passwordController.text)
+          .get();
 
       if (adminQuery.docs.isNotEmpty) {
-        final adminDoc = adminQuery.docs.first;
-        final adminData = adminDoc.data();
-        if (adminData['password'] == _passwordController.text) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AdminDashboard(),
-            ),
-          );
+        final prefs = await SharedPreferences.getInstance();
+        if (_rememberMe) {
+          await prefs.setString('userRole', 'admin');
+          await prefs.setString('userId', _emailController.text.trim());
         } else {
-          _showErrorDialog('Invalid password.');
+          await prefs.remove('userRole');
+          await prefs.remove('userId');
         }
+
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, '/admin_dashboard');
       } else {
-        _showErrorDialog('Admin email not found.');
+        _showErrorDialog('Invalid email or password.');
       }
-    } catch (e) {
-      _showErrorDialog('An error occurred. Please try again.');
+    } catch (e, s) {
+      developer.log(
+        'Login failed due to Firestore error. Check for an index creation link in the error message.',
+        name: 'myapp.admin_login',
+        error: e,
+        stackTrace: s,
+      );
+      _showErrorDialog('An error occurred. Please check the debug console for details.');
     }
   }
 
@@ -59,7 +88,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
     );
   }
 
- @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
@@ -125,7 +154,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                   obscureText: !_isPasswordVisible,
                   decoration: InputDecoration(
                     labelText: 'Password',
-                     prefixIcon: const Icon(Icons.lock_outline),
+                    prefixIcon: const Icon(Icons.lock_outline),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8.0),
                     ),
@@ -143,13 +172,26 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 16),
+                CheckboxListTile(
+                  title: const Text("Remember Me"),
+                  value: _rememberMe,
+                  onChanged: (newValue) {
+                    setState(() {
+                      _rememberMe = newValue!;
+                    });
+                  },
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: Colors.green,
+                ),
+                const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: _login,
                   icon: const Icon(Icons.arrow_forward, color: Colors.white),
                   label: const Text('Sign In', style: TextStyle(fontSize: 18)),
-                   style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white, 
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
                     backgroundColor: Colors.green,
                     minimumSize: const Size(double.infinity, 56),
                     shape: RoundedRectangleBorder(

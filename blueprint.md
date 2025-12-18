@@ -1,47 +1,32 @@
-# SaiLearn - A School Learning Solution
+# SaiLearn App Blueprint
 
 ## Overview
 
-This application provides a login portal for students and staff of SaiLearn, a school learning solution.
+SaiLearn is a comprehensive educational application designed to streamline interactions between students, teachers, and administrators. The app provides role-based access to a suite of tools for managing schedules, assignments, grades, and communication, all within a secure and intuitive interface.
 
-## Style, Design, and Features
+## Style and Design
 
-### Version 1.0.0
+The application follows a clean and modern design aesthetic, with a user-friendly interface that prioritizes clarity and ease of use. Key design elements include:
 
-#### **Login Screen**
+*   **Color Scheme:** A professional and visually appealing palette with a primary color of green, creating a consistent and branded look.
+*   **Typography:** Clear and legible fonts to ensure readability across all devices.
+*   **Layout:** A responsive and adaptive layout that provides a seamless experience on both mobile and web platforms.
 
-*   **Visual Design:**
-    *   Background Color: A light greyish-blue (`#F0F4F8`).
-    *   Typography:
-        *   Main Title ("Welcome to SaiLearn"): Large, bold, and in a dark green color.
-        *   Subtitle ("Your complete school learning solution."): Medium size, in a grey color.
-        *   Card Title ("Login As"): Bold and prominent.
-    *   Layout: A centrally aligned column containing the welcome text and a login card.
-    *   Card: A white card with rounded corners and a subtle shadow, giving it a "lifted" look.
-*   **Features:**
-    *   **Role-based Login:**
-        *   Presents two distinct login options: "Student" and "Staff".
-        *   Each option is represented by a large, tappable button with a relevant icon.
-    *   **Navigation:**
-        *   Tapping the "Student" button navigates the user to the `StudentPage`.
-        *   Tapping the "Staff" button navigates the user to the `StaffPage`.
+## Features
 
-#### **Student Page**
+### Implemented
 
-*   A simple placeholder page with a green `AppBar` and a welcome message for students.
+*   **Role-Based Authentication:** Secure login for students, teachers, and administrators, ensuring that users can only access features relevant to their role.
+*   **Persistent Login with "Remember Me":** A "Remember Me" option on all login screens, allowing users to stay logged in across sessions for a more convenient experience.
+*   **Cross-Platform Compatibility:** A single codebase that runs on both Android and web, providing a consistent experience for all users.
+*   **Intuitive Navigation:** A clear and straightforward navigation system that makes it easy for users to find the information they need.
 
-#### **Staff Page**
+### Current Plan: "Remember Me" Functionality
 
-*   A simple placeholder page with a dark green `AppBar` and a welcome message for staff.
-
-## Current Plan
-
-**Request:** "Remove your flutter demo page and instead of it i have attached the photo copy it and make it main login page and in it there are two buttons student and teachers if we click on it both opens new pages"
-
-**Steps:**
-
-1.  **Create `lib/login_page.dart`**: Implement the login screen UI as per the provided image.
-2.  **Create `lib/student_page.dart`**: Create a placeholder page for the student section.
-3.  **Create `lib/staff_page.dart`**: Create a placeholder page for the staff section.
-4.  **Update `lib/main.dart`**: Set `LoginPage` as the initial route of the application.
-5.  **Create `blueprint.md`**: To document the project's features and the current development plan.
+*   **Objective:** To allow users to remain logged in between sessions by adding a "Remember Me" checkbox to all login screens.
+*   **Steps:**
+    1.  **Integrate `shared_preferences`:** Add the `shared_preferences` package to enable secure local data storage.
+    2.  **Add "Remember Me" Checkbox:** Include a checkbox on the student, teacher, and admin login pages.
+    3.  **Save User Credentials:** When a user logs in with "Remember Me" checked, their user ID and role will be saved to the device.
+    4.  **Implement Auto-Login:** On app startup, check for saved credentials and automatically navigate the user to their dashboard if found.
+    5.  **Add Logout Button:** Provide a logout button on each dashboard to clear saved credentials and return to the main login screen.

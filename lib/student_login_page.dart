@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:myapp/student_dashboard.dart';
 import 'dart:developer' as developer;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class StudentLoginPage extends StatefulWidget {
   const StudentLoginPage({super.key});
@@ -14,23 +15,47 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
   final _studentIdController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedCredentials();
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getString('userRole') == 'student') {
+      final userId = prefs.getString('userId');
+      if (userId != null) {
+        setState(() {
+          _studentIdController.text = userId;
+          _rememberMe = true;
+        });
+      }
+    }
+  }
 
   Future<void> _login() async {
     try {
       final students = FirebaseFirestore.instance.collection('students');
-      // Assume the student ID field is 'studentId' based on the teacher schema
       final studentQuery = await students
           .where('studentId', isEqualTo: _studentIdController.text.trim())
           .where('password', isEqualTo: _passwordController.text)
           .get();
 
       if (studentQuery.docs.isNotEmpty) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const StudentDashboard(),
-          ),
-        );
+        final prefs = await SharedPreferences.getInstance();
+        if (_rememberMe) {
+          await prefs.setString('userRole', 'student');
+          await prefs.setString('userId', _studentIdController.text.trim());
+        } else {
+          await prefs.remove('userRole');
+          await prefs.remove('userId');
+        }
+
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, '/student_dashboard');
       } else {
         _showErrorDialog('Invalid Student ID or password.');
       }
@@ -145,7 +170,20 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 16),
+                CheckboxListTile(
+                  title: const Text("Remember Me"),
+                  value: _rememberMe,
+                  onChanged: (newValue) {
+                    setState(() {
+                      _rememberMe = newValue!;
+                    });
+                  },
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: Colors.green,
+                ),
+                const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: _login,
                   icon: const Icon(Icons.arrow_forward, color: Colors.white),
