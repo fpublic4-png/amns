@@ -61,116 +61,49 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.lightBlue[50],
-      body: SafeArea(
+      appBar: AppBar(
+        title: const Text('Student Login'),
+        backgroundColor: Colors.green,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.blue),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
+            TextField(
+              controller: _studentIdController,
+              decoration: const InputDecoration(
+                labelText: 'Student ID',
+                border: OutlineInputBorder(),
               ),
             ),
-            Expanded(
-              child: Center(
-                child: Container(
-                  width: MediaQuery.of(context).size.width * 0.8,
-                  padding: const EdgeInsets.all(24.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16.0),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.2),
-                        spreadRadius: 5,
-                        blurRadius: 7,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
+            const SizedBox(height: 16),
+            TextField(
+              controller: _passwordController,
+              obscureText: !_isPasswordVisible,
+              decoration: InputDecoration(
+                labelText: 'Password',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'Student Login',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Enter your Student ID and password to continue',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      TextFormField(
-                        controller: _studentIdController,
-                        decoration: InputDecoration(
-                          labelText: 'Student ID',
-                          prefixIcon: const Icon(Icons.person),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: !_isPasswordVisible,
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          prefixIcon: const Icon(Icons.lock),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _isPasswordVisible
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _isPasswordVisible = !_isPasswordVisible;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: _login,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 40, vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.arrow_forward, color: Colors.white),
-                            SizedBox(width: 8),
-                            Text('Sign In',
-                                style: TextStyle(color: Colors.white)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                  onPressed: () {
+                    setState(() {
+                      _isPasswordVisible = !_isPasswordVisible;
+                    });
+                  },
                 ),
               ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _login,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+              ),
+              child: const Text('Login'),
             ),
           ],
         ),
