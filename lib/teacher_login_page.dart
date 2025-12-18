@@ -15,7 +15,6 @@ class _TeacherLoginPageState extends State<TeacherLoginPage> {
   final _teacherIdController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
-  bool _rememberMe = false;
 
   @override
   void initState() {
@@ -25,13 +24,11 @@ class _TeacherLoginPageState extends State<TeacherLoginPage> {
 
   Future<void> _loadSavedCredentials() async {
     final prefs = await SharedPreferences.getInstance();
-    // Only load credentials if the last saved user was a teacher
     if (prefs.getString('userRole') == 'teacher') {
       final userId = prefs.getString('userId');
       if (userId != null) {
         setState(() {
           _teacherIdController.text = userId;
-          _rememberMe = true;
         });
       }
     }
@@ -47,14 +44,8 @@ class _TeacherLoginPageState extends State<TeacherLoginPage> {
 
       if (teacherQuery.docs.isNotEmpty) {
         final prefs = await SharedPreferences.getInstance();
-        if (_rememberMe) {
-          await prefs.setString('userRole', 'teacher');
-          await prefs.setString('userId', _teacherIdController.text.trim());
-        } else {
-          // Clear any potentially saved credentials from other user types
-          await prefs.remove('userRole');
-          await prefs.remove('userId');
-        }
+        await prefs.setString('userRole', 'teacher');
+        await prefs.setString('userId', _teacherIdController.text.trim());
 
         if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/teacher_dashboard');
@@ -174,20 +165,7 @@ class _TeacherLoginPageState extends State<TeacherLoginPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                CheckboxListTile(
-                  title: const Text("Remember Me"),
-                  value: _rememberMe,
-                  onChanged: (newValue) {
-                    setState(() {
-                      _rememberMe = newValue!;
-                    });
-                  },
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: Colors.green,
-                ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 32),
                 ElevatedButton.icon(
                   onPressed: _login,
                   icon: const Icon(Icons.arrow_forward, color: Colors.white),

@@ -15,7 +15,6 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
   final _studentIdController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
-  bool _rememberMe = false;
 
   @override
   void initState() {
@@ -30,7 +29,6 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
       if (userId != null) {
         setState(() {
           _studentIdController.text = userId;
-          _rememberMe = true;
         });
       }
     }
@@ -46,13 +44,8 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
 
       if (studentQuery.docs.isNotEmpty) {
         final prefs = await SharedPreferences.getInstance();
-        if (_rememberMe) {
-          await prefs.setString('userRole', 'student');
-          await prefs.setString('userId', _studentIdController.text.trim());
-        } else {
-          await prefs.remove('userRole');
-          await prefs.remove('userId');
-        }
+        await prefs.setString('userRole', 'student');
+        await prefs.setString('userId', _studentIdController.text.trim());
 
         if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/student_dashboard');
@@ -170,20 +163,7 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                CheckboxListTile(
-                  title: const Text("Remember Me"),
-                  value: _rememberMe,
-                  onChanged: (newValue) {
-                    setState(() {
-                      _rememberMe = newValue!;
-                    });
-                  },
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: Colors.green,
-                ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 32),
                 ElevatedButton.icon(
                   onPressed: _login,
                   icon: const Icon(Icons.arrow_forward, color: Colors.white),
