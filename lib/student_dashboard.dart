@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'dart:developer' as developer;
 import 'student_profile_page.dart';
+import 'notifications_popup.dart';
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
@@ -60,6 +61,21 @@ class _StudentDashboardState extends State<StudentDashboard> {
     });
   }
 
+  void _showNotificationsPopup() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          contentPadding: EdgeInsets.zero,
+          content: const NotificationsPopup(),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildNavItem(IconData icon, String label, int index) {
     final isSelected = _selectedIndex == index;
     return GestureDetector(
@@ -104,7 +120,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_none),
-            onPressed: () {},
+            onPressed: _showNotificationsPopup, 
           ),
           GestureDetector(
             onTap: () {
