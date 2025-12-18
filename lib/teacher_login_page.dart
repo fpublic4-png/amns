@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:myapp/teacher_dashboard.dart';
+import 'dart:developer' as developer;
 
 class TeacherLoginPage extends StatefulWidget {
   const TeacherLoginPage({super.key});
@@ -17,26 +18,29 @@ class _TeacherLoginPageState extends State<TeacherLoginPage> {
   Future<void> _login() async {
     try {
       final teachers = FirebaseFirestore.instance.collection('teachers');
-      final teacherQuery = await teachers.where('teacher_id', isEqualTo: _teacherIdController.text).get();
+      final teacherQuery = await teachers
+          .where('teacherId', isEqualTo: _teacherIdController.text.trim())
+          .where('password', isEqualTo: _passwordController.text)
+          .get();
 
       if (teacherQuery.docs.isNotEmpty) {
-        final teacherDoc = teacherQuery.docs.first;
-        final teacherData = teacherDoc.data();
-        if (teacherData['password'] == _passwordController.text) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const TeacherDashboard(),
-            ),
-          );
-        } else {
-          _showErrorDialog('Invalid password.');
-        }
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const TeacherDashboard(),
+          ),
+        );
       } else {
-        _showErrorDialog('Teacher ID not found.');
+        _showErrorDialog('Invalid Teacher ID or password.');
       }
-    } catch (e) {
-      _showErrorDialog('An error occurred. Please try again.');
+    } catch (e, s) {
+      developer.log(
+        'Login failed due to Firestore error. Check for an index creation link in the error message.',
+        name: 'myapp.teacher_login',
+        error: e,
+        stackTrace: s,
+      );
+      _showErrorDialog('An error occurred. Please check the debug console for details.');
     }
   }
 
@@ -58,7 +62,7 @@ class _TeacherLoginPageState extends State<TeacherLoginPage> {
     );
   }
 
- @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
@@ -124,7 +128,7 @@ class _TeacherLoginPageState extends State<TeacherLoginPage> {
                   obscureText: !_isPasswordVisible,
                   decoration: InputDecoration(
                     labelText: 'Password',
-                     prefixIcon: const Icon(Icons.lock_outline),
+                    prefixIcon: const Icon(Icons.lock_outline),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8.0),
                     ),
@@ -147,8 +151,8 @@ class _TeacherLoginPageState extends State<TeacherLoginPage> {
                   onPressed: _login,
                   icon: const Icon(Icons.arrow_forward, color: Colors.white),
                   label: const Text('Sign In', style: TextStyle(fontSize: 18)),
-                   style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white, 
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
                     backgroundColor: Colors.green,
                     minimumSize: const Size(double.infinity, 56),
                     shape: RoundedRectangleBorder(
