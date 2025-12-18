@@ -105,7 +105,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   @override
   Widget build(BuildContext context) {
 
-    final List<Widget> _widgetOptions = <Widget>[
+    final List<Widget> widgetOptions = <Widget>[
       HomeTab(studentName: _studentName),
       const Center(child: Text('Study Material Page')),
       const Center(child: Text('AI Doubt Solver Page')),
@@ -136,7 +136,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
           const SizedBox(width: 16),
         ],
       ),
-      body: _widgetOptions.elementAt(_selectedIndex),
+      body: widgetOptions.elementAt(_selectedIndex),
       bottomNavigationBar: BottomAppBar(
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,

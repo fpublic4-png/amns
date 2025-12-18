@@ -12,10 +12,11 @@ class NotificationsPopup extends StatefulWidget {
 
 class _NotificationsPopupState extends State<NotificationsPopup> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  List<String> _notifications = [];
-  List<String> _homework = [];
+  List<Map<String, String>> _notifications = [];
+  List<Map<String, String>> _homework = [];
   bool _isLoading = true;
   String? _studentClass;
+  String? _studentSection;
 
   @override
   void initState() {
@@ -25,7 +26,7 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
   }
 
   Future<void> _fetchStudentDataAndMessages() async {
-    await _fetchStudentClass();
+    await _fetchStudentDetails();
     if (_studentClass != null) {
       await _fetchMessages();
     }
@@ -36,7 +37,7 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
     }
   }
 
-  Future<void> _fetchStudentClass() async {
+  Future<void> _fetchStudentDetails() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId');
@@ -46,16 +47,20 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
       }
 
       final studentDoc = await FirebaseFirestore.instance.collection('students').doc(userId).get();
-       if (studentDoc.exists) {
-        _studentClass = studentDoc.data()?['class'];
+      if (studentDoc.exists) {
+        final data = studentDoc.data();
+        _studentClass = data?['class'];
+        _studentSection = data?['section'];
       } else {
         final studentQuery = await FirebaseFirestore.instance.collection('students').where('studentId', isEqualTo: userId).get();
-        if(studentQuery.docs.isNotEmpty){
-             _studentClass = studentQuery.docs.first.data()['class'];
+        if (studentQuery.docs.isNotEmpty) {
+           final data = studentQuery.docs.first.data();
+           _studentClass = data['class'];
+           _studentSection = data['section'];
         }
       }
     } catch (e, s) {
-      developer.log('Error fetching student class', name: 'myapp.notifications', error: e, stackTrace: s);
+      developer.log('Error fetching student details', name: 'myapp.notifications', error: e, stackTrace: s);
     }
   }
 
@@ -63,19 +68,88 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
     if (_studentClass == null) return;
 
     try {
-      final notificationsSnapshot = await FirebaseFirestore.instance
-          .collection('notifications')
-          .where('class', whereIn: [_studentClass, 'everyone'])
-          .orderBy('timestamp', descending: true)
-          .get();
-      _notifications = notificationsSnapshot.docs.map((doc) => doc.data()['message'] as String).toList();
+      final Set<DocumentSnapshot> allNotifications = {};
 
-      final homeworkSnapshot = await FirebaseFirestore.instance
-          .collection('homework')
-          .where('class', isEqualTo: _studentClass)
-          .orderBy('timestamp', descending: true)
+      // 1. Get "Everyone" notifications
+      final everyoneQuery = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('recipientType', isEqualTo: 'Everyone')
           .get();
-      _homework = homeworkSnapshot.docs.map((doc) => doc.data()['message'] as String).toList();
+      allNotifications.addAll(everyoneQuery.docs);
+
+      // 2. Get "Whole Class" notifications
+      final wholeClassQuery = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('recipientType', isEqualTo: 'Whole Class')
+          .where('class', isEqualTo: _studentClass)
+          .get();
+      allNotifications.addAll(wholeClassQuery.docs);
+
+      // 3. Get "Specific Class/Section" notifications
+      if (_studentSection != null) {
+        final specificSectionQuery = await FirebaseFirestore.instance
+            .collection('notifications')
+            .where('recipientType', isEqualTo: 'Specific Class/Section')
+            .where('class', isEqualTo: _studentClass)
+            .where('section', isEqualTo: _studentSection)
+            .get();
+        allNotifications.addAll(specificSectionQuery.docs);
+      }
+
+      final notificationsList = allNotifications.toList();
+      notificationsList.sort((a, b) {
+        final timestampA = (a.data() as Map)['timestamp'] as Timestamp;
+        final timestampB = (b.data() as Map)['timestamp'] as Timestamp;
+        return timestampB.compareTo(timestampA); // descending
+      });
+
+      _notifications = notificationsList.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          'title': data['title'] as String? ?? '',
+          'message': data['message'] as String? ?? '',
+        };
+      }).toList();
+
+      final Set<DocumentSnapshot> allHomework = {};
+
+      final everyoneHomeworkQuery = await FirebaseFirestore.instance
+          .collection('homework')
+          .where('recipientType', isEqualTo: 'Everyone')
+          .get();
+      allHomework.addAll(everyoneHomeworkQuery.docs);
+
+      final wholeClassHomeworkQuery = await FirebaseFirestore.instance
+          .collection('homework')
+          .where('recipientType', isEqualTo: 'Whole Class')
+          .where('class', isEqualTo: _studentClass)
+          .get();
+      allHomework.addAll(wholeClassHomeworkQuery.docs);
+
+      if (_studentSection != null) {
+        final specificSectionHomeworkQuery = await FirebaseFirestore.instance
+            .collection('homework')
+            .where('recipientType', isEqualTo: 'Specific Class/Section')
+            .where('class', isEqualTo: _studentClass)
+            .where('section', isEqualTo: _studentSection)
+            .get();
+        allHomework.addAll(specificSectionHomeworkQuery.docs);
+      }
+      
+      final homeworkList = allHomework.toList();
+      homeworkList.sort((a, b) {
+        final timestampA = (a.data() as Map)['timestamp'] as Timestamp;
+        final timestampB = (b.data() as Map)['timestamp'] as Timestamp;
+        return timestampB.compareTo(timestampA);
+      });
+
+      _homework = homeworkList.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          'title': data['title'] as String? ?? '',
+          'message': data['message'] as String? ?? '',
+        };
+      }).toList();
     } catch (e, s) {
       developer.log('Error fetching messages', name: 'myapp.notifications', error: e, stackTrace: s);
     }
@@ -89,7 +163,7 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: 300,
       height: 400,
       child: Column(
@@ -138,7 +212,7 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
     );
   }
 
-  Widget _buildMessageList(List<String> messages, String emptyMessage) {
+  Widget _buildMessageList(List<Map<String, String>> messages, String emptyMessage) {
     if (messages.isEmpty) {
       return Center(child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -148,8 +222,10 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
     return ListView.builder(
       itemCount: messages.length,
       itemBuilder: (context, index) {
+        final message = messages[index];
         return ListTile(
-          title: Text(messages[index]),
+          title: Text(message['title']!),
+          subtitle: Text(message['message']!),
         );
       },
     );
