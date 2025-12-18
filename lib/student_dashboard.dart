@@ -1,31 +1,215 @@
 
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:percent_indicator/percent_indicator.dart';
+import 'dart:developer' as developer;
 
-class StudentDashboard extends StatelessWidget {
+class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
 
-  Future<void> _logout(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    if (!Navigator.of(context).mounted) return;
-    Navigator.pushReplacementNamed(context, '/login');
+  @override
+  State<StudentDashboard> createState() => _StudentDashboardState();
+}
+
+class _StudentDashboardState extends State<StudentDashboard> {
+  int _selectedIndex = 0;
+  String? _studentName;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStudentName();
   }
+
+  Future<void> _fetchStudentName() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId');
+      if (userId == null) {
+        developer.log('User ID not found in SharedPreferences', name: 'myapp.student_dashboard');
+        return;
+      }
+
+      final studentDoc = await FirebaseFirestore.instance.collection('students').doc(userId).get();
+      if (studentDoc.exists) {
+        setState(() {
+          _studentName = studentDoc.data()?['name'] ?? 'Student';
+        });
+      } else {
+         final studentQuery = await FirebaseFirestore.instance.collection('students').where('studentId', isEqualTo: userId).get();
+         if (studentQuery.docs.isNotEmpty) {
+           setState(() {
+             _studentName = studentQuery.docs.first.data()['name'] ?? 'Student';
+           });
+         }
+      }
+    } catch (e, s) {
+      developer.log(
+        'Error fetching student name',
+        name: 'myapp.student_dashboard',
+        error: e,
+        stackTrace: s,
+      );
+    }
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  static const List<Widget> _widgetOptions = <Widget>[
+    HomeTab(),
+    Center(child: Text('Study Material Page')),
+    Center(child: Text('AI Doubt Solver Page')),
+    Center(child: Text('Tests Page')),
+    Center(child: Text('PYQs Page')),
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Student Dashboard'),
+        automaticallyImplyLeading: false,
+        title: const Text('SaiLearn', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _logout(context),
+            icon: const Icon(Icons.notifications_none),
+            onPressed: () {},
           ),
+          const CircleAvatar(
+            child: Text('A'),
+          ),
+          const SizedBox(width: 16),
         ],
       ),
-      body: const Center(
-        child: Text('Welcome, Student!'),
+      body: _selectedIndex == 0 ? HomeTab(studentName: _studentName) : _widgetOptions.elementAt(_selectedIndex),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.menu_book),
+            label: 'Material',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.lightbulb_outline),
+            label: 'AI Doubt',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.assignment),
+            label: 'Tests',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history),
+            label: 'PYQs',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.green,
+        unselectedItemColor: Colors.grey,
+        onTap: _onItemTapped,
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          setState(() {
+            _selectedIndex = 2;
+          });
+        },
+        backgroundColor: Colors.green,
+        child: const Icon(Icons.lightbulb, color: Colors.white,),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+    );
+  }
+}
+
+class HomeTab extends StatelessWidget {
+  final String? studentName;
+  const HomeTab({super.key, this.studentName});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Welcome back,',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          Text(
+            '${studentName ?? 'Ansh'}!',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.green,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Card(
+            child: ExpansionTile(
+              leading: const Icon(Icons.assignment_ind_outlined),
+              title: const Text('Attendance Report'),
+              children: <Widget>[
+                ListTile(
+                  title: Text('Details about attendance will be shown here.'),
+                )
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Lectures Watched',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  LinearPercentIndicator(
+                    lineHeight: 8.0,
+                    percent: 0.6,
+                    backgroundColor: Colors.grey[300],
+                    progressColor: Colors.green,
+                    barRadius: const Radius.circular(4),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('60% of lectures completed'),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Subject Mastery',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  CircularPercentIndicator(
+                    radius: 30.0,
+                    lineWidth: 5.0,
+                    percent: 0.85,
+                    center: const Text('85%'),
+                    progressColor: Colors.green,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

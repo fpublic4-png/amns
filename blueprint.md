@@ -19,14 +19,15 @@ The application follows a clean and modern design aesthetic, with a user-friendl
 *   **Role-Based Authentication:** Secure login for students, teachers, and administrators, ensuring that users can only access features relevant to their role.
 *   **Automatic Persistent Login:** The app automatically remembers any user who successfully logs in, allowing them to stay logged in across sessions for a more convenient and seamless experience.
 *   **Cross-Platform Compatibility:** A single codebase that runs on both Android and web, providing a consistent experience for all users.
+*   **Redesigned Student Dashboard:** A brand new, modern dashboard for students with a dynamic welcome message, attendance and progress tracking, and a new bottom navigation bar.
 *   **Intuitive Navigation:** A clear and straightforward navigation system that makes it easy for users to find the information they need.
 
-### Current Plan: Automatic Persistent Login
+### Current Plan: Student Dashboard Redesign
 
-*   **Objective:** To automatically remember any user who successfully logs in, removing the need for a "Remember Me" checkbox and providing a more seamless user experience.
+*   **Objective:** To create a modern, intuitive, and feature-rich dashboard for students, following the provided design.
 *   **Steps:**
-    1.  **Integrate `shared_preferences`:** Add the `shared_preferences` package to enable secure local data storage.
-    2.  **Remove "Remember Me" Checkbox:** Eliminate the checkbox from the student, teacher, and admin login pages.
-    3.  **Automatically Save User Credentials:** When a user logs in successfully, their user ID and role will be automatically saved to the device.
-    4.  **Implement Auto-Login:** On app startup, check for saved credentials and automatically navigate the user to their dashboard if found.
-    5.  **Add Logout Button:** Provide a logout button on each dashboard to clear saved credentials and return to the main login screen.
+    1.  **Add `percent_indicator` dependency:** Include the `percent_indicator` package for progress tracking.
+    2.  **Redesign the UI:** Rebuild the `student_dashboard.dart` file with a new layout, including a header, body, and footer.
+    3.  **Fetch Student Name:** Dynamically retrieve and display the student's name from Firestore.
+    4.  **Implement Bottom Navigation:** Create a bottom navigation bar with five tabs: Home, Material, AI Doubt, Tests, and PYQs.
+    5.  **Add Progress Indicators:** Include progress indicators for "Lectures Watched" and "Subject Mastery."
