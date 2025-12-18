@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'dart:developer' as developer;
+import 'student_profile_page.dart';
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
@@ -79,8 +80,16 @@ class _StudentDashboardState extends State<StudentDashboard> {
             icon: const Icon(Icons.notifications_none),
             onPressed: () {},
           ),
-          const CircleAvatar(
-            child: Text('A'),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const StudentProfilePage()),
+              );
+            },
+            child: const CircleAvatar(
+              child: Text('A'),
+            ),
           ),
           const SizedBox(width: 16),
         ],
