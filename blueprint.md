@@ -22,12 +22,9 @@ The application follows a clean and modern design aesthetic, with a user-friendl
 *   **Redesigned Student Dashboard:** A brand new, modern dashboard for students with a dynamic welcome message, attendance and progress tracking, and a new bottom navigation bar.
 *   **Intuitive Navigation:** A clear and straightforward navigation system that makes it easy for users to find the information they need.
 
-### Current Plan: Student Dashboard Redesign
+### Current Plan: Student Dashboard Refinements
 
-*   **Objective:** To create a modern, intuitive, and feature-rich dashboard for students, following the provided design.
+*   **Objective:** To refine the student dashboard by removing the floating action button and ensuring all navigation labels are persistently visible.
 *   **Steps:**
-    1.  **Add `percent_indicator` dependency:** Include the `percent_indicator` package for progress tracking.
-    2.  **Redesign the UI:** Rebuild the `student_dashboard.dart` file with a new layout, including a header, body, and footer.
-    3.  **Fetch Student Name:** Dynamically retrieve and display the student's name from Firestore.
-    4.  **Implement Bottom Navigation:** Create a bottom navigation bar with five tabs: Home, Material, AI Doubt, Tests, and PYQs.
-    5.  **Add Progress Indicators:** Include progress indicators for "Lectures Watched" and "Subject Mastery."
+    1.  **Remove Floating Action Button:** Delete the floating green bulb icon to simplify the UI.
+    2.  **Enhance Bottom Navigation:** Modify the bottom navigation bar to ensure all labels are always visible, improving clarity and ease of use.

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -60,16 +59,17 @@ class _StudentDashboardState extends State<StudentDashboard> {
     });
   }
 
-  static const List<Widget> _widgetOptions = <Widget>[
-    HomeTab(),
-    Center(child: Text('Study Material Page')),
-    Center(child: Text('AI Doubt Solver Page')),
-    Center(child: Text('Tests Page')),
-    Center(child: Text('PYQs Page')),
-  ];
-
   @override
   Widget build(BuildContext context) {
+
+    final List<Widget> _widgetOptions = <Widget>[
+      HomeTab(studentName: _studentName),
+      const Center(child: Text('Study Material Page')),
+      const Center(child: Text('AI Doubt Solver Page')),
+      const Center(child: Text('Tests Page')),
+      const Center(child: Text('PYQs Page')),
+    ];
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -85,7 +85,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
           const SizedBox(width: 16),
         ],
       ),
-      body: _selectedIndex == 0 ? HomeTab(studentName: _studentName) : _widgetOptions.elementAt(_selectedIndex),
+      body: _widgetOptions.elementAt(_selectedIndex),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
@@ -112,18 +112,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.green,
         unselectedItemColor: Colors.grey,
+        showUnselectedLabels: true,
+        type: BottomNavigationBarType.fixed,
         onTap: _onItemTapped,
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          setState(() {
-            _selectedIndex = 2;
-          });
-        },
-        backgroundColor: Colors.green,
-        child: const Icon(Icons.lightbulb, color: Colors.white,),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 }
