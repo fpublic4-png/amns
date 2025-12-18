@@ -1,8 +1,20 @@
 
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:myapp/firebase_options.dart';
 import 'package:myapp/login_page.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: FirebaseOptions(
+        apiKey: MyFirebaseConfig.config["apiKey"]!,
+        authDomain: MyFirebaseConfig.config["authDomain"]!,
+        projectId: MyFirebaseConfig.config["projectId"]!,
+        storageBucket: MyFirebaseConfig.config["storageBucket"]!,
+        messagingSenderId: MyFirebaseConfig.config["messagingSenderId"]!,
+        appId: MyFirebaseConfig.config["appId"]!),
+  );
   runApp(const MyApp());
 }
 
