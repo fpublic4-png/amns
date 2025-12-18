@@ -72,10 +72,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: isSelected ? Colors.green : Colors.grey, size: 24),
-            if (isSelected) ...[
-              const SizedBox(height: 2),
-              Text(label, style: const TextStyle(color: Colors.green, fontSize: 12)),
-            ],
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.green : Colors.grey,
+                fontSize: 12,
+              ),
+            ),
           ],
         ),
       ),

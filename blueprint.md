@@ -11,7 +11,7 @@ The application follows a clean and modern design aesthetic, with a user-friendl
 *   **Color Scheme:** A professional and visually appealing palette with a primary color of green, creating a consistent and branded look.
 *   **Typography:** Clear and legible fonts to ensure readability across all devices.
 *   **Layout:** A responsive and adaptive layout that provides a seamless experience on both mobile and web platforms.
-*   **Animated Navigation:** An interactive bottom navigation bar where the selected item animates with a subtle scaling effect, providing clear visual feedback to the user.
+*   **Animated Navigation:** An interactive bottom navigation bar where the selected item animates with a subtle scaling effect, and all labels are persistently visible for enhanced clarity.
 
 ## Features
 
@@ -24,13 +24,12 @@ The application follows a clean and modern design aesthetic, with a user-friendl
 *   **Intuitive Navigation:** A clear and straightforward navigation system that makes it easy for users to find the information they need.
 *   **Student Profile Page:** A dedicated page where students can view their personal and guardian information, upload a profile picture, and log out of the application.
 
-### Current Plan: Restore Bottom Navigation Animation
+### Current Plan: Enhance Bottom Navigation Clarity
 
-*   **Objective:** To restore the animation in the bottom navigation bar where the selected icon becomes larger than the others.
+*   **Objective:** To improve the bottom navigation bar by making all item labels visible, while retaining the scaling animation for the selected item.
 *   **Steps:**
     1.  **Modify `student_dashboard.dart`:**
-        *   Replace the `BottomNavigationBar` with a custom `BottomAppBar` containing a `Row` of tappable items.
-        *   Create a `_buildNavItem` helper method to build each navigation item.
-        *   Use an `AnimatedContainer` with a `Transform.scale` to apply a scaling effect to the selected item.
-        *   Conditionally show the label only for the selected item to restore the original, uncluttered look.
-    2.  **Update `blueprint.md`:** Document the restoration of the navigation animation in the `blueprint.md` file.
+        *   In the `_buildNavItem` method, remove the conditional logic that was hiding the labels for unselected items.
+        *   Ensure the `Text` widget for the label is always rendered for every navigation item.
+        *   The color of the icon and text will continue to change based on the selection state, while the scaling animation remains on the active item.
+    2.  **Update `blueprint.md`:** Document the improved label visibility in the navigation bar.
