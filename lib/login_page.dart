@@ -1,7 +1,8 @@
 
 import 'package:flutter/material.dart';
-import 'package:myapp/staff_page.dart';
-import 'package:myapp/student_page.dart';
+import 'package:myapp/student_login_page.dart';
+import 'package:myapp/teacher_login_page.dart';
+import 'package:myapp/admin_login_page.dart';
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -9,85 +10,55 @@ class LoginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4F8),
+      backgroundColor: Colors.white,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             const Text(
-              'Welcome to\nSaiLearn',
-              textAlign: TextAlign.center,
+              'SaiLearn',
               style: TextStyle(
-                fontSize: 40,
+                fontSize: 48,
                 fontWeight: FontWeight.bold,
                 color: Colors.green,
               ),
             ),
             const SizedBox(height: 16),
             const Text(
-              'Your complete school learning\nsolution.',
-              textAlign: TextAlign.center,
+              'Your Learning Companion',
               style: TextStyle(
                 fontSize: 18,
-                color: Colors.black54,
+                color: Colors.grey,
               ),
             ),
-            const SizedBox(height: 40),
-            Container(
-              padding: const EdgeInsets.all(24),
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
-                    spreadRadius: 5,
-                    blurRadius: 7,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
+            const SizedBox(height: 48),
+            _buildLoginButton(
+              context,
+              'Student Login',
+              Colors.blue,
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const StudentLoginPage()),
               ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Login As',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Please select your role to continue.',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.black54,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  _buildLoginButton(
-                    context,
-                    'Student',
-                    Icons.school,
-                    Colors.lightGreen,
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const StudentPage()),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildLoginButton(
-                    context,
-                    'Staff',
-                    Icons.person,
-                    Colors.green.shade700,
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const StaffPage()),
-                    ),
-                  ),
-                ],
+            ),
+            const SizedBox(height: 16),
+            _buildLoginButton(
+              context,
+              'Teacher Login',
+              Colors.teal,
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const TeacherLoginPage()),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildLoginButton(
+              context,
+              'Admin Login',
+              Colors.red,
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AdminLoginPage()),
               ),
             ),
           ],
@@ -97,27 +68,17 @@ class LoginPage extends StatelessWidget {
   }
 
   Widget _buildLoginButton(
-    BuildContext context,
-    String title,
-    IconData icon,
-    Color color,
-    VoidCallback onPressed,
-  ) {
-    return ElevatedButton.icon(
+      BuildContext context, String title, Color color, VoidCallback onPressed) {
+    return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
-        foregroundColor: Colors.white,
-        minimumSize: const Size(double.infinity, 60),
+        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8.0),
         ),
       ),
-      icon: Icon(icon),
-      label: Text(
-        title,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-      ),
+      child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 18)),
     );
   }
 }

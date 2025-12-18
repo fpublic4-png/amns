@@ -1,40 +1,39 @@
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:myapp/admin_dashboard.dart';
+import 'package:myapp/student_dashboard.dart';
 
-class AdminLoginPage extends StatefulWidget {
-  const AdminLoginPage({super.key});
+class StudentLoginPage extends StatefulWidget {
+  const StudentLoginPage({super.key});
 
   @override
-  State<AdminLoginPage> createState() => _AdminLoginPageState();
+  State<StudentLoginPage> createState() => _StudentLoginPageState();
 }
 
-class _AdminLoginPageState extends State<AdminLoginPage> {
-  final _emailController = TextEditingController();
+class _StudentLoginPageState extends State<StudentLoginPage> {
+  final _studentIdController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
 
   Future<void> _login() async {
     try {
-      final admins = FirebaseFirestore.instance.collection('admins');
-      final adminQuery = await admins.where('email', isEqualTo: _emailController.text).get();
+      final students = FirebaseFirestore.instance.collection('students');
+      final studentDoc = await students.doc(_studentIdController.text).get();
 
-      if (adminQuery.docs.isNotEmpty) {
-        final adminDoc = adminQuery.docs.first;
-        final adminData = adminDoc.data();
-        if (adminData['password'] == _passwordController.text) {
+      if (studentDoc.exists) {
+        final studentData = studentDoc.data()!;
+        if (studentData['password'] == _passwordController.text) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => const AdminDashboard(),
+              builder: (context) => const StudentDashboard(),
             ),
           );
         } else {
           _showErrorDialog('Invalid password.');
         }
       } else {
-        _showErrorDialog('Admin email not found.');
+        _showErrorDialog('Student ID not found.');
       }
     } catch (e) {
       _showErrorDialog('An error occurred. Please try again.');
@@ -62,7 +61,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.red[50],
+      backgroundColor: Colors.lightBlue[50],
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,7 +69,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.red),
+                icon: const Icon(Icons.arrow_back, color: Colors.blue),
                 onPressed: () {
                   Navigator.pop(context);
                 },
@@ -97,16 +96,16 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
-                        'Admin Login',
+                        'Student Login',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: Colors.red,
+                          color: Colors.blue,
                         ),
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Enter your email and password to continue',
+                        'Enter your Student ID and password to continue',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.grey,
@@ -114,10 +113,10 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                       ),
                       const SizedBox(height: 24),
                       TextFormField(
-                        controller: _emailController,
+                        controller: _studentIdController,
                         decoration: InputDecoration(
-                          labelText: 'Email',
-                          prefixIcon: const Icon(Icons.email),
+                          labelText: 'Student ID',
+                          prefixIcon: const Icon(Icons.person),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8.0),
                           ),
@@ -151,7 +150,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                       ElevatedButton(
                         onPressed: _login,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
+                          backgroundColor: Colors.blue,
                           padding: const EdgeInsets.symmetric(
                               horizontal: 40, vertical: 16),
                           shape: RoundedRectangleBorder(
