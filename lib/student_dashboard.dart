@@ -60,6 +60,28 @@ class _StudentDashboardState extends State<StudentDashboard> {
     });
   }
 
+  Widget _buildNavItem(IconData icon, String label, int index) {
+    final isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () => _onItemTapped(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeIn,
+        transform: isSelected ? (Matrix4.identity()..scale(1.2)) : Matrix4.identity(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: isSelected ? Colors.green : Colors.grey, size: 24),
+            if (isSelected) ...[
+              const SizedBox(height: 2),
+              Text(label, style: const TextStyle(color: Colors.green, fontSize: 12)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
 
@@ -95,35 +117,17 @@ class _StudentDashboardState extends State<StudentDashboard> {
         ],
       ),
       body: _widgetOptions.elementAt(_selectedIndex),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.menu_book),
-            label: 'Material',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.lightbulb_outline),
-            label: 'AI Doubt',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.assignment),
-            label: 'Tests',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'PYQs',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.green,
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        type: BottomNavigationBarType.fixed,
-        onTap: _onItemTapped,
+      bottomNavigationBar: BottomAppBar(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildNavItem(Icons.home, 'Home', 0),
+            _buildNavItem(Icons.menu_book, 'Material', 1),
+            _buildNavItem(Icons.lightbulb_outline, 'AI Doubt', 2),
+            _buildNavItem(Icons.assignment, 'Tests', 3),
+            _buildNavItem(Icons.history, 'PYQs', 4),
+          ],
+        ),
       ),
     );
   }
