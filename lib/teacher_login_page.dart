@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:myapp/teacher_dashboard.dart';
@@ -18,10 +17,11 @@ class _TeacherLoginPageState extends State<TeacherLoginPage> {
   Future<void> _login() async {
     try {
       final teachers = FirebaseFirestore.instance.collection('teachers');
-      final teacherDoc = await teachers.doc(_teacherIdController.text).get();
+      final teacherQuery = await teachers.where('teacher_id', isEqualTo: _teacherIdController.text).get();
 
-      if (teacherDoc.exists) {
-        final teacherData = teacherDoc.data()!;
+      if (teacherQuery.docs.isNotEmpty) {
+        final teacherDoc = teacherQuery.docs.first;
+        final teacherData = teacherDoc.data();
         if (teacherData['password'] == _passwordController.text) {
           Navigator.pushReplacement(
             context,
