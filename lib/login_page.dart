@@ -1,7 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:myapp/student_login_page.dart';
-import 'package:myapp/staff_selection_page.dart'; // Will be created next
+import 'package:myapp/staff_selection_page.dart';
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -17,32 +17,34 @@ class LoginPage extends StatelessWidget {
             children: [
               const Text(
                 'Welcome to SaiLearn',
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 32,
+                  fontSize: 40,
                   fontWeight: FontWeight.bold,
-                  color: Colors.green,
+                  color: Color(0xFF4CAF50), // Dark Green
                 ),
               ),
               const SizedBox(height: 8),
               const Text(
                 'Your complete school learning solution.',
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
+                  fontSize: 18,
+                  color: Colors.black54,
                 ),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 50),
               Container(
                 width: MediaQuery.of(context).size.width * 0.9,
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.grey.withOpacity(0.2),
-                      spreadRadius: 5,
-                      blurRadius: 15,
+                      spreadRadius: 2,
+                      blurRadius: 10,
                       offset: const Offset(0, 5),
                     ),
                   ],
@@ -52,41 +54,48 @@ class LoginPage extends StatelessWidget {
                     const Text(
                       'Login As',
                       style: TextStyle(
-                        fontSize: 22,
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
+                        color: Colors.black87,
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildLoginCard(
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Please select your role to continue.',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+                    _buildLoginButton(
+                      context,
+                      icon: Icons.school,
+                      label: 'Student',
+                      color: const Color(0xFF66BB6A), // Lighter Green
+                      onTap: () {
+                        Navigator.push(
                           context,
-                          icon: Icons.school,
-                          label: 'Student',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const StudentLoginPage(),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildLoginCard(
+                          MaterialPageRoute(
+                            builder: (context) => const StudentLoginPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 15),
+                    _buildLoginButton(
+                      context,
+                      icon: Icons.person_search, // Corrected Icon
+                      label: 'Staff',
+                      color: const Color(0xFF388E3C), // Darker Green
+                      onTap: () {
+                        Navigator.push(
                           context,
-                          icon: Icons.group, // Changed from Icons.person_workspace
-                          label: 'Staff',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const StaffSelectionPage(),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
+                          MaterialPageRoute(
+                            builder: (context) => const StaffSelectionPage(),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -98,33 +107,19 @@ class LoginPage extends StatelessWidget {
     );
   }
 
-  Widget _buildLoginCard(BuildContext context, {required IconData icon, required String label, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 120,
-        height: 120,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.grey[200]!),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              spreadRadius: 2,
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            )
-          ],
+  Widget _buildLoginButton(BuildContext context, {required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+    return ElevatedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, color: Colors.white),
+      label: Text(label, style: const TextStyle(fontSize: 18)),
+      style: ElevatedButton.styleFrom(
+        foregroundColor: Colors.white,
+        backgroundColor: color,
+        minimumSize: const Size(double.infinity, 60),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: Colors.green),
-            const SizedBox(height: 10),
-            Text(label, style: const TextStyle(fontSize: 16)),
-          ],
-        ),
+        elevation: 3,
       ),
     );
   }
