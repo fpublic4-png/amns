@@ -9,9 +9,13 @@ class TeacherLoginPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Teacher Login'),
+        backgroundColor: Colors.green,
       ),
       body: const Center(
-        child: Text('Teacher Login Page'),
+        child: Text(
+          'Teacher Login Page',
+          style: TextStyle(fontSize: 24),
+        ),
       ),
     );
   }

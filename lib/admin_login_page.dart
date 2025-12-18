@@ -9,9 +9,13 @@ class AdminLoginPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Login'),
+        backgroundColor: Colors.green,
       ),
       body: const Center(
-        child: Text('Admin Login Page'),
+        child: Text(
+          'Admin Login Page',
+          style: TextStyle(fontSize: 24),
+        ),
       ),
     );
   }
