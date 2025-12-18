@@ -27,7 +27,7 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
 
   Future<void> _fetchStudentDataAndMessages() async {
     await _fetchStudentDetails();
-    if (_studentClass != null) {
+    if (mounted && _studentClass != null) {
       await _fetchMessages();
     }
     if (mounted) {
@@ -68,88 +68,98 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
     if (_studentClass == null) return;
 
     try {
-      final Set<DocumentSnapshot> allNotifications = {};
+      // Use a Map to store items by their document ID, preventing duplicates.
+      final Map<String, Map<String, dynamic>> allNotifications = {};
+      final Map<String, Map<String, dynamic>> allHomework = {};
 
-      // 1. Get "Everyone" notifications
-      final everyoneQuery = await FirebaseFirestore.instance
+      // --- Step 1: Fetch items for "Everyone" ---
+      final everyoneNotifications = await FirebaseFirestore.instance
           .collection('notifications')
           .where('recipientType', isEqualTo: 'Everyone')
           .get();
-      allNotifications.addAll(everyoneQuery.docs);
+      for (var doc in everyoneNotifications.docs) {
+        allNotifications[doc.id] = doc.data();
+      }
 
-      // 2. Get "Whole Class" notifications
-      final wholeClassQuery = await FirebaseFirestore.instance
+      final everyoneHomework = await FirebaseFirestore.instance
+          .collection('homework')
+          .where('recipientType', isEqualTo: 'Everyone')
+          .get();
+       for (var doc in everyoneHomework.docs) {
+        allHomework[doc.id] = doc.data();
+      }
+
+      // --- Step 2: Fetch items for the "Whole Class" ---
+      final wholeClassNotifications = await FirebaseFirestore.instance
           .collection('notifications')
           .where('recipientType', isEqualTo: 'Whole Class')
           .where('class', isEqualTo: _studentClass)
           .get();
-      allNotifications.addAll(wholeClassQuery.docs);
+      for (var doc in wholeClassNotifications.docs) {
+        allNotifications[doc.id] = doc.data();
+      }
+      
+      final wholeClassHomework = await FirebaseFirestore.instance
+          .collection('homework')
+          .where('recipientType', isEqualTo: 'Whole Class')
+          .where('class', isEqualTo: _studentClass)
+          .get();
+      for (var doc in wholeClassHomework.docs) {
+        allHomework[doc.id] = doc.data();
+      }
 
-      // 3. Get "Specific Class/Section" notifications
+      // --- Step 3: Fetch items for the "Specific Class/Section" ---
       if (_studentSection != null) {
-        final specificSectionQuery = await FirebaseFirestore.instance
+        final specificSectionNotifications = await FirebaseFirestore.instance
             .collection('notifications')
             .where('recipientType', isEqualTo: 'Specific Class/Section')
             .where('class', isEqualTo: _studentClass)
             .where('section', isEqualTo: _studentSection)
             .get();
-        allNotifications.addAll(specificSectionQuery.docs);
-      }
+        for (var doc in specificSectionNotifications.docs) {
+          allNotifications[doc.id] = doc.data();
+        }
 
-      final notificationsList = allNotifications.toList();
-      notificationsList.sort((a, b) {
-        final timestampA = (a.data() as Map)['timestamp'] as Timestamp;
-        final timestampB = (b.data() as Map)['timestamp'] as Timestamp;
-        return timestampB.compareTo(timestampA); // descending
-      });
-
-      _notifications = notificationsList.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return {
-          'title': data['title'] as String? ?? '',
-          'message': data['message'] as String? ?? '',
-        };
-      }).toList();
-
-      final Set<DocumentSnapshot> allHomework = {};
-
-      final everyoneHomeworkQuery = await FirebaseFirestore.instance
-          .collection('homework')
-          .where('recipientType', isEqualTo: 'Everyone')
-          .get();
-      allHomework.addAll(everyoneHomeworkQuery.docs);
-
-      final wholeClassHomeworkQuery = await FirebaseFirestore.instance
-          .collection('homework')
-          .where('recipientType', isEqualTo: 'Whole Class')
-          .where('class', isEqualTo: _studentClass)
-          .get();
-      allHomework.addAll(wholeClassHomeworkQuery.docs);
-
-      if (_studentSection != null) {
-        final specificSectionHomeworkQuery = await FirebaseFirestore.instance
+        final specificSectionHomework = await FirebaseFirestore.instance
             .collection('homework')
             .where('recipientType', isEqualTo: 'Specific Class/Section')
             .where('class', isEqualTo: _studentClass)
             .where('section', isEqualTo: _studentSection)
             .get();
-        allHomework.addAll(specificSectionHomeworkQuery.docs);
+        for (var doc in specificSectionHomework.docs) {
+          allHomework[doc.id] = doc.data();
+        }
       }
-      
-      final homeworkList = allHomework.toList();
-      homeworkList.sort((a, b) {
-        final timestampA = (a.data() as Map)['timestamp'] as Timestamp;
-        final timestampB = (b.data() as Map)['timestamp'] as Timestamp;
+
+      // --- Process and Sort Notifications ---
+      final notificationsList = allNotifications.values.toList();
+      notificationsList.sort((a, b) {
+        final timestampA = a['timestamp'] as Timestamp? ?? Timestamp(0,0);
+        final timestampB = b['timestamp'] as Timestamp? ?? Timestamp(0,0);
         return timestampB.compareTo(timestampA);
       });
-
-      _homework = homeworkList.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+      _notifications = notificationsList.map((data) {
         return {
-          'title': data['title'] as String? ?? '',
-          'message': data['message'] as String? ?? '',
+          'title': data['title'] as String? ?? 'No Title',
+          'message': data['message'] as String? ?? 'No Message',
         };
       }).toList();
+
+      // --- Process and Sort Homework ---
+      final homeworkList = allHomework.values.toList();
+      homeworkList.sort((a, b) {
+        final timestampA = a['createdAt'] as Timestamp? ?? Timestamp(0,0);
+        final timestampB = b['createdAt'] as Timestamp? ?? Timestamp(0,0);
+        return timestampB.compareTo(timestampA);
+      });
+      _homework = homeworkList.map((data) {
+        return {
+          'title': data['title'] as String? ?? 'No Title',
+          'description': data['description'] as String? ?? 'No Description',
+          'dueDate': data['dueDate'] as String? ?? '',
+        };
+      }).toList();
+
     } catch (e, s) {
       developer.log('Error fetching messages', name: 'myapp.notifications', error: e, stackTrace: s);
     }
@@ -164,8 +174,8 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 300,
-      height: 400,
+      width: 350,
+      height: 450,
       child: Column(
         children: [
           TabBar(
@@ -175,7 +185,7 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.notifications), 
+                    Icon(Icons.notifications),
                     SizedBox(width: 8),
                     Text("Notifications"),
                   ],
@@ -185,7 +195,7 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.check_box), 
+                    Icon(Icons.check_box),
                     SizedBox(width: 8),
                     Text("Homework"),
                   ],
@@ -202,8 +212,8 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
                 : TabBarView(
                     controller: _tabController,
                     children: [
-                      _buildMessageList(_notifications, 'You have no new notifications.'),
-                      _buildMessageList(_homework, 'You have no new homework.'),
+                      _buildNotificationList(),
+                      _buildHomeworkList(),
                     ],
                   ),
           ),
@@ -212,20 +222,46 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
     );
   }
 
-  Widget _buildMessageList(List<Map<String, String>> messages, String emptyMessage) {
-    if (messages.isEmpty) {
-      return Center(child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Text(emptyMessage),
+  Widget _buildNotificationList() {
+    if (_notifications.isEmpty) {
+      return const Center(child: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Text('You have no new notifications.'),
       ));
     }
     return ListView.builder(
-      itemCount: messages.length,
+      itemCount: _notifications.length,
       itemBuilder: (context, index) {
-        final message = messages[index];
+        final notification = _notifications[index];
         return ListTile(
-          title: Text(message['title']!),
-          subtitle: Text(message['message']!),
+          title: Text(notification['title']!),
+          subtitle: Text(notification['message']!),
+        );
+      },
+    );
+  }
+
+  Widget _buildHomeworkList() {
+    if (_homework.isEmpty) {
+      return const Center(child: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Text('You have no new homework.'),
+      ));
+    }
+    return ListView.builder(
+      itemCount: _homework.length,
+      itemBuilder: (context, index) {
+        final hw = _homework[index];
+        return ListTile(
+          title: Text(hw['title']!),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(hw['description']!),
+              const SizedBox(height: 4),
+              Text('Due: ${hw['dueDate']}', style: const TextStyle(fontStyle: FontStyle.italic)),
+            ],
+          ),
         );
       },
     );

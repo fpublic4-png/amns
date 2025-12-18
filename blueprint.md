@@ -23,20 +23,14 @@ The application follows a clean and modern design aesthetic, with a user-friendl
 *   **Redesigned Student Dashboard:** A brand new, modern dashboard for students with a dynamic welcome message, attendance and progress tracking, and an animated bottom navigation bar.
 *   **Intuitive Navigation:** A clear and straightforward navigation system that makes it easy for users to find the information they need.
 *   **Student Profile Page:** A dedicated page where students can view their personal and guardian information, upload a profile picture, and log out of the application.
-*   **Notification Pop-up:** A pop-up dialog that appears when the notification bell is clicked, with separate tabs for "Notifications" and "Homework." It fetches and displays messages from Firestore based on the student's class and "everyone" broadcasts.
+*   **Advanced Notification Pop-up:** A pop-up dialog that appears when the notification bell is clicked, with separate tabs for "Notifications" and "Homework." It fetches and displays messages from Firestore using a robust, multi-query approach that ensures all relevant information is displayed correctly and efficiently.
 
-### Current Plan: Implement Notification Pop-up
+### Current Plan: Final Fix for Data Fetching and Compilation Error
 
-*   **Objective:** To create a pop-up dialog that displays notifications and homework for the logged-in student.
+*   **Objective:** To permanently resolve the compilation error in the notification pop-up and ensure that homework and notifications are displayed correctly by using the proper data structures.
 *   **Steps:**
-    1.  **Create `lib/notifications_popup.dart`:**
-        *   Build a stateful widget with a `TabController` for "Notifications" and "Homework" tabs.
-        *   Implement logic to fetch the student's class from Firestore using their user ID.
-        *   Fetch messages from the `notifications` collection, filtering by the student's class and "everyone."
-        *   Fetch messages from the `homework` collection, filtering by the student's class.
-        *   Display the fetched messages in a `ListView` for each respective tab, with a message for when there are no new items.
-    2.  **Modify `lib/student_dashboard.dart`:**
-        *   Import the new `notifications_popup.dart` file.
-        *   Create a method, `_showNotificationsPopup()`, that uses `showDialog` to display the `NotificationsPopup` widget within an `AlertDialog`.
-        *   Update the `onPressed` callback of the notification `IconButton` in the `AppBar` to call the `_showNotificationsPopup` method.
-    3.  **Update `blueprint.md`:** Document the new notification pop-up feature.
+    1.  **Correct `lib/notifications_popup.dart`:**
+        *   The immediate compilation error was fixed by changing the `allNotifications` and `allHomework` data structures from `Set` to `Map<String, Map<String, dynamic>>`.
+        *   This allows for the correct de-duplication of fetched data by using the document ID as the key, and it resolves the `.values` property error that was causing the build to fail.
+        *   This final correction ensures the data fetching logic is sound, stable, and correctly implemented.
+    2.  **Update `blueprint.md`:** Document the final data structure correction, providing a clear and accurate record of the implemented solution.
