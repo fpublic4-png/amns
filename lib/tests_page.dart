@@ -15,11 +15,12 @@ class TestsPage extends StatefulWidget {
 
 class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  List<Map<String, dynamic>> _allTests = [];
+  // Create separate lists for weekly and monthly tests
+  List<Map<String, dynamic>> _weeklyTests = [];
+  List<Map<String, dynamic>> _monthlyTests = [];
   Map<String, String> _testScores = {}; // Map<testId, score>
   bool _isLoading = true;
   String? _studentClass;
-  String? _studentSection;
   String? _userId;
 
   @override
@@ -33,8 +34,7 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
     setState(() => _isLoading = true);
     await _fetchStudentDetails();
     if (mounted && _userId != null) {
-      // Fetch all tests first, then submissions
-      await _fetchTests();
+      await _fetchAndSortTests();
       await _fetchSubmissionsAndCalculateScores();
     }
     if (mounted) {
@@ -54,7 +54,7 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
       }
 
       final studentDoc = await FirebaseFirestore.instance.collection('students').doc(_userId).get();
-      if (studentDoc.exists) {
+       if (studentDoc.exists) {
         final data = studentDoc.data();
         _studentClass = data?['class'];
       } else {
@@ -69,30 +69,38 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
     }
   }
 
-  Future<void> _fetchTests() async {
+  Future<void> _fetchAndSortTests() async {
     if (_studentClass == null) return;
 
     try {
-      // Fetch all tests for the student's class, without filtering by date.
       final testsSnapshot = await FirebaseFirestore.instance
           .collection('tests')
           .where('class', isEqualTo: _studentClass)
           .get();
 
-      final List<Map<String, dynamic>> fetchedTests = [];
+      List<Map<String, dynamic>> weekly = [];
+      List<Map<String, dynamic>> monthly = [];
+
       for (var doc in testsSnapshot.docs) {
         final data = doc.data();
         data['id'] = doc.id;
-        fetchedTests.add(data);
+        final type = data['type'] as String?;
+
+        if (type == 'Weekly') {
+          weekly.add(data);
+        } else if (type == 'Monthly') {
+          monthly.add(data);
+        }
       }
 
       if(mounted) {
         setState(() {
-          _allTests = fetchedTests;
+          _weeklyTests = weekly;
+          _monthlyTests = monthly;
         });
       }
     } catch (e, s) {
-      developer.log('Error fetching tests', name: 'myapp.tests', error: e, stackTrace: s);
+      developer.log('Error fetching and sorting tests', name: 'myapp.tests', error: e, stackTrace: s);
     }
   }
 
@@ -137,12 +145,11 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
         });
       }
     } catch (e, s) {
-      developer.log('Error fetching submissions', name: 'myapp.tests', error: e, stackTrace: s);
+      developer.log('Error fetching submissions and calculating scores', name: 'myapp.tests', error: e, stackTrace: s);
     }
   }
   
   void _navigateToTest(String testId) async {
-    // When returning from the test screen, we expect a 'submitted' result to refresh.
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => TestScreen(testId: testId)),
@@ -185,8 +192,9 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
                   : TabBarView(
                       controller: _tabController,
                       children: [
-                        _buildTestList(_allTests), 
-                        _buildTestList(_allTests),
+                        // Pass the sorted lists to the TabBarView
+                        _buildTestList(_weeklyTests),
+                        _buildTestList(_monthlyTests),
                       ],
                     ),
             ),
@@ -199,7 +207,7 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
   Widget _buildTestList(List<Map<String, dynamic>> tests) {
     if (tests.isEmpty) {
       return const Center(
-        child: Text('No tests have been assigned yet.', style: TextStyle(fontSize: 16, color: Colors.grey)),
+        child: Text('No tests have been assigned in this category.', style: TextStyle(fontSize: 16, color: Colors.grey)),
       );
     }
     return ListView.builder(
