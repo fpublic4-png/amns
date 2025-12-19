@@ -33,6 +33,7 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
     setState(() => _isLoading = true);
     await _fetchStudentDetails();
     if (mounted && _userId != null) {
+      // Fetch all tests first, then submissions
       await _fetchTests();
       await _fetchSubmissionsAndCalculateScores();
     }
@@ -56,13 +57,11 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
       if (studentDoc.exists) {
         final data = studentDoc.data();
         _studentClass = data?['class'];
-        _studentSection = data?['section'];
       } else {
-        final studentQuery = await FirebaseFirestore.instance.collection('students').where('studentId', isEqualTo: _userId).get();
+         final studentQuery = await FirebaseFirestore.instance.collection('students').where('studentId', isEqualTo: _userId).get();
         if (studentQuery.docs.isNotEmpty) {
-          final data = studentQuery.docs.first.data();
+           final data = studentQuery.docs.first.data();
           _studentClass = data['class'];
-          _studentSection = data['section'];
         }
       }
     } catch (e, s) {
@@ -74,11 +73,10 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
     if (_studentClass == null) return;
 
     try {
-      final String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      // Fetch all tests for the student's class, without filtering by date.
       final testsSnapshot = await FirebaseFirestore.instance
           .collection('tests')
           .where('class', isEqualTo: _studentClass)
-          .where('date', isEqualTo: todayDate)
           .get();
 
       final List<Map<String, dynamic>> fetchedTests = [];
@@ -117,7 +115,6 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
 
         final testData = testDoc.data()!;
         final questions = (testData['questions'] as List?) ?? [];
-        // The submitted answers are now a map of questionId to integer index
         final submittedAnswers = (submissionData['answers'] as Map<String, dynamic>?) ?? {};
 
         int correctCount = 0;
@@ -125,8 +122,6 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
           final question = questions[i];
           final questionId = 'question_$i';
           final correctAnswerIndex = question['correctAnswerIndex'] as int?;
-          
-          // Get the submitted answer index for this question
           final submittedAnswerIndex = submittedAnswers[questionId] as int?;
 
           if (correctAnswerIndex != null && submittedAnswerIndex == correctAnswerIndex) {
@@ -142,22 +137,21 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
         });
       }
     } catch (e, s) {
-      developer.log('Error fetching submissions and calculating scores', name: 'myapp.tests', error: e, stackTrace: s);
+      developer.log('Error fetching submissions', name: 'myapp.tests', error: e, stackTrace: s);
     }
   }
-
+  
   void _navigateToTest(String testId) async {
+    // When returning from the test screen, we expect a 'submitted' result to refresh.
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => TestScreen(testId: testId)),
     );
 
-    // When returning from the test screen, refresh the data
     if (result == 'submitted') {
       _fetchStudentAndTestData();
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -205,7 +199,7 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
   Widget _buildTestList(List<Map<String, dynamic>> tests) {
     if (tests.isEmpty) {
       return const Center(
-        child: Text('No tests available for today.', style: TextStyle(fontSize: 16, color: Colors.grey)),
+        child: Text('No tests have been assigned yet.', style: TextStyle(fontSize: 16, color: Colors.grey)),
       );
     }
     return ListView.builder(
@@ -224,22 +218,68 @@ class TestCard extends StatelessWidget {
   final String? score;
   final VoidCallback onStartTest;
 
-
   const TestCard({super.key, required this.test, this.score, required this.onStartTest});
 
   @override
   Widget build(BuildContext context) {
     String formattedDate = 'N/A';
+    DateTime? testDate;
      if (test['date'] is String) {
       try {
-        final date = DateTime.parse(test['date']);
-        formattedDate = DateFormat('MMMM d, y').format(date);
+        testDate = DateTime.parse(test['date']);
+        formattedDate = DateFormat('MMMM d, y').format(testDate);
       } catch (e) {
         formattedDate = test['date']; 
       }
     } 
 
     final questionsCount = (test['questions'] as List?)?.length ?? 0;
+    
+    final today = DateTime.now();
+    final todayDateOnly = DateTime(today.year, today.month, today.day);
+    final testDateOnly = testDate != null ? DateTime(testDate.year, testDate.month, testDate.day) : null;
+
+    final bool isToday = testDateOnly != null && testDateOnly.isAtSameMomentAs(todayDateOnly);
+    final bool isFuture = testDateOnly != null && testDateOnly.isAfter(todayDateOnly);
+    final bool isPast = testDateOnly != null && testDateOnly.isBefore(todayDateOnly);
+
+    Widget actionWidget;
+    if (score != null) {
+      actionWidget = Center(
+        child: Column(
+          children: [
+            const Text('Test Completed', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
+            const SizedBox(height: 8),
+            Text('Your Score: $score', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      );
+    } else if (isToday) {
+      actionWidget = ElevatedButton(
+        onPressed: onStartTest,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.play_circle_outline, color: Colors.white),
+            SizedBox(width: 8),
+            Text('Start Test', style: TextStyle(color: Colors.white, fontSize: 16)),
+          ],
+        ),
+      );
+    } else if (isFuture) {
+      actionWidget = Center(
+          child: Text('Available on $formattedDate', style: const TextStyle(fontSize: 16, color: Colors.blueAccent, fontWeight: FontWeight.bold)));
+    } else if (isPast) {
+      actionWidget = Center(
+          child: Text('This test was due on $formattedDate', style: const TextStyle(fontSize: 16, color: Colors.redAccent, fontWeight: FontWeight.bold)));
+    } else {
+      actionWidget = const Center(child: Text('Date not specified'));
+    }
 
     return Card(
       elevation: 4.0,
@@ -256,33 +296,7 @@ class TestCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text('Questions: $questionsCount', style: const TextStyle(fontSize: 14, color: Colors.grey)),
             const SizedBox(height: 16),
-            if (score != null)
-              Center(
-                child: Column(
-                  children: [
-                    const Text('Test Completed', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
-                    const SizedBox(height: 8),
-                    Text('Your Score: $score', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              )
-            else
-              ElevatedButton(
-                onPressed: onStartTest,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.play_circle_outline, color: Colors.white),
-                    SizedBox(width: 8),
-                    Text('Start Test', style: TextStyle(color: Colors.white, fontSize: 16)),
-                  ],
-                ),
-              ),
+            actionWidget,
           ],
         ),
       ),

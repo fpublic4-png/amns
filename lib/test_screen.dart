@@ -204,7 +204,7 @@ class QuestionWidget extends StatelessWidget {
                   }
                 },
               );
-            }).toList(),
+            }),
           ],
         ),
       ),
