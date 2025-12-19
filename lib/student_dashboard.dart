@@ -5,6 +5,7 @@ import 'package:percent_indicator/percent_indicator.dart';
 import 'dart:developer' as developer;
 import 'student_profile_page.dart';
 import 'notifications_popup.dart';
+import 'tests_page.dart'; // Import the new tests page
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
@@ -109,7 +110,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
       HomeTab(studentName: _studentName),
       const Center(child: Text('Study Material Page')),
       const Center(child: Text('AI Doubt Solver Page')),
-      const Center(child: Text('Tests Page')),
+      const TestsPage(), // Replace placeholder with the new TestsPage
       const Center(child: Text('PYQs Page')),
     ];
 
