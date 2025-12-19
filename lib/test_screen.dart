@@ -15,7 +15,9 @@ class TestScreen extends StatefulWidget {
 class _TestScreenState extends State<TestScreen> {
   List<Map<String, dynamic>> _questions = [];
   bool _isLoading = true;
-  final Map<String, String> _selectedAnswers = {};
+  // This map will store the selected answer TEXT for the UI
+  final Map<String, String> _selectedAnswersByText = {};
+  String _testTitle = 'Test';
 
   @override
   void initState() {
@@ -25,23 +27,32 @@ class _TestScreenState extends State<TestScreen> {
 
   Future<void> _fetchQuestions() async {
     try {
-      final questionsSnapshot = await FirebaseFirestore.instance
-          .collection('tests')
-          .doc(widget.testId)
-          .collection('questions')
-          .get();
+      final testDoc = await FirebaseFirestore.instance.collection('tests').doc(widget.testId).get();
 
-      _questions = questionsSnapshot.docs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return data;
-      }).toList();
+      if (testDoc.exists) {
+        final testData = testDoc.data();
+        _testTitle = testData?['subject'] ?? 'Test';
+        final questionsData = testData?['questions'] as List?;
+
+        if (questionsData != null) {
+          _questions = List<Map<String, dynamic>>.from(
+            questionsData.asMap().entries.map((entry) {
+              int index = entry.key;
+              Map<String, dynamic> question = Map<String, dynamic>.from(entry.value);
+              question['id'] = 'question_$index';
+              return question;
+            })
+          );
+        } else {
+          _questions = [];
+        }
+      } else {
+        _questions = [];
+      }
 
       setState(() {
         _isLoading = false;
       });
-
-      developer.log('Fetched ${_questions.length} questions for test ${widget.testId}', name: 'myapp.test_screen');
     } catch (e, s) {
       developer.log('Error fetching questions', name: 'myapp.test_screen', error: e, stackTrace: s);
       setState(() {
@@ -62,22 +73,38 @@ class _TestScreenState extends State<TestScreen> {
       return;
     }
 
+    // Convert the map of selected answer strings to a map of selected indices before saving
+    final Map<String, int> answersAsIndices = {};
+    for (final questionId in _selectedAnswersByText.keys) {
+      final questionIndex = int.parse(questionId.split('_')[1]);
+      final question = _questions[questionIndex];
+      final options = List<String>.from(question['options']?.map((e) => e.toString()) ?? []);
+      final selectedAnswerString = _selectedAnswersByText[questionId];
+      final selectedIndex = options.indexOf(selectedAnswerString!);
+
+      if (selectedIndex != -1) {
+        answersAsIndices[questionId] = selectedIndex;
+      }
+    }
+
     try {
       final submission = {
         'testId': widget.testId,
         'studentId': userId,
-        'answers': _selectedAnswers,
+        'answers': answersAsIndices, // Save the map of indices
         'submittedAt': FieldValue.serverTimestamp(),
       };
 
       await FirebaseFirestore.instance.collection('test_submissions').add(submission);
 
-      developer.log('Test submission successful for user $userId', name: 'myapp.test_screen');
+      developer.log('Test submission successful for user $userId with indices', name: 'myapp.test_screen');
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Test submitted successfully!')),
       );
+      // Use pop until the tests page is visible to trigger a refresh
       Navigator.pop(context);
+
     } catch (e, s) {
       developer.log('Error submitting test', name: 'myapp.test_screen', error: e, stackTrace: s);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -90,7 +117,7 @@ class _TestScreenState extends State<TestScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Complete Your Test'),
+        title: Text(_testTitle),
         backgroundColor: Colors.green,
       ),
       body: _isLoading
@@ -107,10 +134,11 @@ class _TestScreenState extends State<TestScreen> {
                           final question = _questions[index];
                           return QuestionWidget(
                             question: question,
-                            selectedAnswer: _selectedAnswers[question['id']],
+                            questionNumber: index + 1,
+                            selectedAnswer: _selectedAnswersByText[question['id']],
                             onAnswerSelected: (answer) {
                               setState(() {
-                                _selectedAnswers[question['id']] = answer;
+                                _selectedAnswersByText[question['id']] = answer;
                               });
                             },
                           );
@@ -123,7 +151,7 @@ class _TestScreenState extends State<TestScreen> {
                         onPressed: _submitTest,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
-                          minimumSize: const Size(double.infinity, 50), // Make button wide
+                          minimumSize: const Size(double.infinity, 50),
                         ),
                         child: const Text('Submit Test', style: TextStyle(fontSize: 18, color: Colors.white)),
                       ),
@@ -136,19 +164,21 @@ class _TestScreenState extends State<TestScreen> {
 
 class QuestionWidget extends StatelessWidget {
   final Map<String, dynamic> question;
+  final int questionNumber;
   final String? selectedAnswer;
   final ValueChanged<String> onAnswerSelected;
 
   const QuestionWidget({
     super.key,
     required this.question,
+    required this.questionNumber,
     required this.selectedAnswer,
     required this.onAnswerSelected,
   });
 
   @override
   Widget build(BuildContext context) {
-    final options = List<String>.from(question['options'] ?? []);
+    final options = List<String>.from(question['options']?.map((e) => e.toString()) ?? []);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 20.0),
@@ -159,7 +189,7 @@ class QuestionWidget extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              question['questionText'] ?? 'No question text',
+              'Question $questionNumber: ${question['questionText'] ?? 'No question text'}',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
@@ -174,7 +204,7 @@ class QuestionWidget extends StatelessWidget {
                   }
                 },
               );
-            }),
+            }).toList(),
           ],
         ),
       ),
