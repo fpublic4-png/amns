@@ -27,13 +27,13 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
 
   Future<void> _fetchStudentDataAndMessages() async {
     await _fetchStudentDetails();
-    if (mounted && _studentClass != null) {
-      await _fetchMessages();
-    }
     if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+      await _fetchMessages();
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -59,76 +59,53 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
            _studentSection = data['section'];
         }
       }
+      developer.log('Student Details Fetched: Class: $_studentClass, Section: $_studentSection', name: 'myapp.fetch');
     } catch (e, s) {
       developer.log('Error fetching student details', name: 'myapp.notifications', error: e, stackTrace: s);
     }
   }
 
   Future<void> _fetchMessages() async {
-    if (_studentClass == null) return;
+    if (_studentClass == null) {
+      developer.log('Student class is null. Aborting message fetch.', name: 'myapp.fetch');
+      return;
+    }
 
     try {
       // Use a Map to store items by their document ID, preventing duplicates.
       final Map<String, Map<String, dynamic>> allNotifications = {};
       final Map<String, Map<String, dynamic>> allHomework = {};
 
-      // --- Step 1: Fetch items for "Everyone" ---
-      final everyoneNotifications = await FirebaseFirestore.instance
-          .collection('notifications')
-          .where('recipientType', isEqualTo: 'Everyone')
-          .get();
-      for (var doc in everyoneNotifications.docs) {
-        allNotifications[doc.id] = doc.data();
-      }
+      // --- UNIVERSAL MULTI-QUERY APPROACH ---
+      developer.log('Starting universal multi-query fetch...', name: 'myapp.fetch');
 
-      final everyoneHomework = await FirebaseFirestore.instance
-          .collection('homework')
-          .where('recipientType', isEqualTo: 'Everyone')
-          .get();
-       for (var doc in everyoneHomework.docs) {
-        allHomework[doc.id] = doc.data();
-      }
+      // 1. Fetch items for "Everyone"
+      final everyoneNotifications = await FirebaseFirestore.instance.collection('notifications').where('recipientType', isEqualTo: 'Everyone').get();
+      for (var doc in everyoneNotifications.docs) { allNotifications[doc.id] = doc.data(); }
+      developer.log('Fetched ${everyoneNotifications.docs.length} notifications for Everyone.', name: 'myapp.fetch');
 
-      // --- Step 2: Fetch items for the "Whole Class" ---
-      final wholeClassNotifications = await FirebaseFirestore.instance
-          .collection('notifications')
-          .where('recipientType', isEqualTo: 'Whole Class')
-          .where('class', isEqualTo: _studentClass)
-          .get();
-      for (var doc in wholeClassNotifications.docs) {
-        allNotifications[doc.id] = doc.data();
-      }
-      
-      final wholeClassHomework = await FirebaseFirestore.instance
-          .collection('homework')
-          .where('recipientType', isEqualTo: 'Whole Class')
-          .where('class', isEqualTo: _studentClass)
-          .get();
-      for (var doc in wholeClassHomework.docs) {
-        allHomework[doc.id] = doc.data();
-      }
+      final everyoneHomework = await FirebaseFirestore.instance.collection('homework').where('recipientType', isEqualTo: 'Everyone').get();
+      for (var doc in everyoneHomework.docs) { allHomework[doc.id] = doc.data(); }
+       developer.log('Fetched ${everyoneHomework.docs.length} homework items for Everyone.', name: 'myapp.fetch');
 
-      // --- Step 3: Fetch items for the "Specific Class/Section" ---
-      if (_studentSection != null) {
-        final specificSectionNotifications = await FirebaseFirestore.instance
-            .collection('notifications')
-            .where('recipientType', isEqualTo: 'Specific Class/Section')
-            .where('class', isEqualTo: _studentClass)
-            .where('section', isEqualTo: _studentSection)
-            .get();
-        for (var doc in specificSectionNotifications.docs) {
-          allNotifications[doc.id] = doc.data();
-        }
+      // 2. Fetch items for the "Whole Class"
+      final wholeClassNotifications = await FirebaseFirestore.instance.collection('notifications').where('recipientType', isEqualTo: 'Whole Class').where('class', isEqualTo: _studentClass).get();
+      for (var doc in wholeClassNotifications.docs) { allNotifications[doc.id] = doc.data(); }
+      developer.log('Fetched ${wholeClassNotifications.docs.length} notifications for Class $_studentClass.', name: 'myapp.fetch');
 
-        final specificSectionHomework = await FirebaseFirestore.instance
-            .collection('homework')
-            .where('recipientType', isEqualTo: 'Specific Class/Section')
-            .where('class', isEqualTo: _studentClass)
-            .where('section', isEqualTo: _studentSection)
-            .get();
-        for (var doc in specificSectionHomework.docs) {
-          allHomework[doc.id] = doc.data();
-        }
+      final wholeClassHomework = await FirebaseFirestore.instance.collection('homework').where('recipientType', isEqualTo: 'Whole Class').where('class', isEqualTo: _studentClass).get();
+      for (var doc in wholeClassHomework.docs) { allHomework[doc.id] = doc.data(); }
+       developer.log('Fetched ${wholeClassHomework.docs.length} homework items for Class $_studentClass.', name: 'myapp.fetch');
+
+      // 3. Fetch items for the "Specific Class/Section"
+      if (_studentSection != null && _studentSection!.isNotEmpty) {
+        final specificSectionNotifications = await FirebaseFirestore.instance.collection('notifications').where('recipientType', isEqualTo: 'Specific Class/Section').where('class', isEqualTo: _studentClass).where('section', isEqualTo: _studentSection).get();
+        for (var doc in specificSectionNotifications.docs) { allNotifications[doc.id] = doc.data(); }
+        developer.log('Fetched ${specificSectionNotifications.docs.length} notifications for Section $_studentSection.', name: 'myapp.fetch');
+
+        final specificSectionHomework = await FirebaseFirestore.instance.collection('homework').where('recipientType', isEqualTo: 'Specific Class/Section').where('class', isEqualTo: _studentClass).where('section', isEqualTo: _studentSection).get();
+        for (var doc in specificSectionHomework.docs) { allHomework[doc.id] = doc.data(); }
+         developer.log('Fetched ${specificSectionHomework.docs.length} homework items for Section $_studentSection.', name: 'myapp.fetch');
       }
 
       // --- Process and Sort Notifications ---
@@ -156,12 +133,16 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
         return {
           'title': data['title'] as String? ?? 'No Title',
           'description': data['description'] as String? ?? 'No Description',
-          'dueDate': data['dueDate'] as String? ?? '',
+          'dueDate': data['dueDate'] as String? ?? 'N/A',
         };
       }).toList();
 
+       developer.log('FINAL: Processed ${notificationsList.length} total notifications and ${homeworkList.length} total homework items.', name: 'myapp.fetch');
+
     } catch (e, s) {
-      developer.log('Error fetching messages', name: 'myapp.notifications', error: e, stackTrace: s);
+      developer.log('Error during message fetch', name: 'myapp.fetch', error: e, stackTrace: s);
+       _notifications = [];
+      _homework = [];
     }
   }
 
@@ -241,7 +222,7 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
     );
   }
 
-  Widget _buildHomeworkList() {
+   Widget _buildHomeworkList() {
     if (_homework.isEmpty) {
       return const Center(child: Padding(
         padding: EdgeInsets.all(16.0),

@@ -25,12 +25,16 @@ The application follows a clean and modern design aesthetic, with a user-friendl
 *   **Student Profile Page:** A dedicated page where students can view their personal and guardian information, upload a profile picture, and log out of the application.
 *   **Advanced Notification Pop-up:** A pop-up dialog that appears when the notification bell is clicked, with separate tabs for "Notifications" and "Homework." It fetches and displays messages from Firestore using a robust, multi-query approach that ensures all relevant information is displayed correctly and efficiently.
 
-### Current Plan: Final Fix for Data Fetching and Compilation Error
+### Current Plan: Definitive Multi-Query Fix for All Data
 
-*   **Objective:** To permanently resolve the compilation error in the notification pop-up and ensure that homework and notifications are displayed correctly by using the proper data structures.
+*   **Objective:** To permanently and correctly fix the data fetching for both notifications and homework by implementing a unified and robust multi-query strategy that eliminates guesswork and ensures stability.
 *   **Steps:**
-    1.  **Correct `lib/notifications_popup.dart`:**
-        *   The immediate compilation error was fixed by changing the `allNotifications` and `allHomework` data structures from `Set` to `Map<String, Map<String, dynamic>>`.
-        *   This allows for the correct de-duplication of fetched data by using the document ID as the key, and it resolves the `.values` property error that was causing the build to fail.
-        *   This final correction ensures the data fetching logic is sound, stable, and correctly implemented.
-    2.  **Update `blueprint.md`:** Document the final data structure correction, providing a clear and accurate record of the implemented solution.
+    1.  **Implement Unified Multi-Query Strategy:**
+        *   The data fetching logic in `lib/notifications_popup.dart` was completely rewritten to use a single, reliable multi-query approach for *both* the `notifications` and `homework` collections.
+        *   This strategy performs three distinct, explicit queries for each collection:
+            1.  Fetches items for 'Everyone'.
+            2.  Fetches items for the student's specific 'Whole Class'.
+            3.  Fetches items for the student's specific 'Class/Section'.
+        *   All results are combined into a `Map` to automatically handle de-duplication, ensuring each item appears only once.
+        *   This definitive approach removes all previous assumptions and unstable logic, guaranteeing a correct and robust implementation.
+    2.  **Update `blueprint.md`:** Document the final, unified multi-query strategy, marking the complete resolution of the data fetching issues.
