@@ -15,7 +15,6 @@ class TestsPage extends StatefulWidget {
 
 class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  // Create separate lists for weekly and monthly tests
   List<Map<String, dynamic>> _weeklyTests = [];
   List<Map<String, dynamic>> _monthlyTests = [];
   Map<String, String> _testScores = {}; // Map<testId, score>
@@ -27,6 +26,12 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    // Add a listener to rebuild the widget when the tab selection changes.
+    _tabController.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
     _fetchStudentAndTestData();
   }
 
@@ -174,28 +179,38 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF00C853)),
             ),
             const SizedBox(height: 20),
+            // Restyled TabBar
             Container(
               height: 45,
               decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(25.0)),
               child: TabBar(
                 controller: _tabController,
-                indicator: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(25.0)),
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.black,
+                indicator: const BoxDecoration(), // No sliding indicator
+                labelColor: Colors.green, // Selected text is green
+                unselectedLabelColor: Colors.black54, // Unselected text is grey
+                labelStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold), // Larger, bold text for selected tab
+                unselectedLabelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.normal), // Normal text for unselected tab
                 tabs: const [Tab(text: 'Weekly Tests'), Tab(text: 'Monthly Tests')],
               ),
             ),
             const SizedBox(height: 20),
+            // Replaced TabBarView with a fading animation
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : TabBarView(
-                      controller: _tabController,
-                      children: [
-                        // Pass the sorted lists to the TabBarView
-                        _buildTestList(_weeklyTests),
-                        _buildTestList(_monthlyTests),
-                      ],
+                  : AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      transitionBuilder: (Widget child, Animation<double> animation) {
+                        return FadeTransition(opacity: animation, child: child);
+                      },
+                      child: IndexedStack(
+                        key: ValueKey<int>(_tabController.index),
+                        index: _tabController.index,
+                        children: [
+                           _buildTestList(_weeklyTests),
+                           _buildTestList(_monthlyTests),
+                        ],
+                      ),
                     ),
             ),
           ],
