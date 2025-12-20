@@ -99,6 +99,16 @@ class _ManageTeachersPageState extends State<ManageTeachersPage> {
                           }
                         }
 
+                        String subjectsDisplay = 'N/A';
+                        if (data.containsKey('subjects')) {
+                          final subjectsData = data['subjects'];
+                          if (subjectsData is List) {
+                            subjectsDisplay = subjectsData.join(', ');
+                          } else if (subjectsData is String) {
+                            subjectsDisplay = subjectsData;
+                          }
+                        }
+
                         return Card(
                           margin: const EdgeInsets.symmetric(vertical: 8.0),
                           child: ListTile(
@@ -108,7 +118,7 @@ class _ManageTeachersPageState extends State<ManageTeachersPage> {
                               children: [
                                 Text(data['email'] ?? 'N/A'),
                                 Text('Classes: $classesDisplay'),
-                                Text('Subjects: ${data['subjects'] ?? 'N/A'}'),
+                                Text('Subjects: $subjectsDisplay'),
                                 Text(
                                   'Class Teacher: ${data['isClassTeacher'] == true ? 'Yes' : 'No'}',
                                 ),
@@ -118,10 +128,26 @@ class _ManageTeachersPageState extends State<ManageTeachersPage> {
                                   ),
                               ],
                             ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.green),
-                              onPressed: () =>
-                                  _showAddTeacherDialog(teacher: teacher),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    color: Colors.green,
+                                  ),
+                                  onPressed: () =>
+                                      _showAddTeacherDialog(teacher: teacher),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: Colors.red,
+                                  ),
+                                  onPressed: () =>
+                                      _showDeleteConfirmationDialog(teacher.id),
+                                ),
+                              ],
                             ),
                           ),
                         );
@@ -141,6 +167,32 @@ class _ManageTeachersPageState extends State<ManageTeachersPage> {
     showDialog(
       context: context,
       builder: (context) => AddTeacherDialog(teacher: teacher),
+    );
+  }
+
+  void _showDeleteConfirmationDialog(String teacherId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Teacher'),
+        content: const Text('Are you sure you want to delete this teacher?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              FirebaseFirestore.instance
+                  .collection('teachers')
+                  .doc(teacherId)
+                  .delete();
+              Navigator.of(context).pop();
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -203,7 +255,16 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
       _fullNameController.text = data['fullName'] ?? '';
       _emailController.text = data['email'] ?? '';
       _phoneController.text = data['phone'] ?? '';
-      _subjectsController.text = data['subjects'] ?? '';
+
+      if (data.containsKey('subjects')) {
+        final subjectsData = data['subjects'];
+        if (subjectsData is List) {
+          _subjectsController.text = subjectsData.join(', ');
+        } else if (subjectsData is String) {
+          _subjectsController.text = subjectsData;
+        }
+      }
+
       _selectedHouse = data['house'];
       _isClassTeacher = data['isClassTeacher'] ?? false;
       _classTeacherClass = data['classTeacherClass'];
@@ -249,7 +310,10 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
           'password': _passwordController.text,
           'phone': _phoneController.text,
           'house': _selectedHouse,
-          'subjects': _subjectsController.text,
+          'subjects': _subjectsController.text
+              .split(',')
+              .map((s) => s.trim())
+              .toList(),
           'isClassTeacher': _isClassTeacher,
           'classTeacherClass': _classTeacherClass,
           'classTeacherSection': _classTeacherSection,
