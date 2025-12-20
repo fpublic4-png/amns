@@ -7,8 +7,9 @@ class AdminDashboard extends StatelessWidget {
   Future<void> _logout(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
-    if (!Navigator.of(context).mounted) return;
-    Navigator.pushReplacementNamed(context, '/login');
+    if (context.mounted) {
+      Navigator.pushReplacementNamed(context, '/');
+    }
   }
 
   @override

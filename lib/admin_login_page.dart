@@ -15,24 +15,6 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadSavedCredentials();
-  }
-
-  Future<void> _loadSavedCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getString('userRole') == 'admin') {
-      final userId = prefs.getString('userId');
-      if (userId != null) {
-        setState(() {
-          _emailController.text = userId;
-        });
-      }
-    }
-  }
-
   Future<void> _login() async {
     try {
       final admins = FirebaseFirestore.instance.collection('admins');

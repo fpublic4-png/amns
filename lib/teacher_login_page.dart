@@ -15,24 +15,6 @@ class _TeacherLoginPageState extends State<TeacherLoginPage> {
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadSavedCredentials();
-  }
-
-  Future<void> _loadSavedCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getString('userRole') == 'teacher') {
-      final userId = prefs.getString('userId');
-      if (userId != null) {
-        setState(() {
-          _teacherIdController.text = userId;
-        });
-      }
-    }
-  }
-
   Future<void> _login() async {
     try {
       final teachers = FirebaseFirestore.instance.collection('teachers');
