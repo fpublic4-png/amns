@@ -24,6 +24,7 @@ class _AddStudentFormState extends State<AddStudentForm> {
   final _fatherNameController = TextEditingController();
   final _fatherPhoneController = TextEditingController();
   final _motherNameController = TextEditingController();
+  bool _passwordVisible = false;
 
   final List<String> _houses = ['Earth', 'Uranus', 'Saturn', 'Mars'];
   final List<String> _sections = ['Sec A', 'Sec B', 'Sec C', 'Sec D', 'Sec E'];
@@ -132,10 +133,22 @@ class _AddStudentFormState extends State<AddStudentForm> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
+                obscureText: !_passwordVisible,
+                decoration: InputDecoration(
                   labelText: 'Password',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _passwordVisible
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _passwordVisible = !_passwordVisible;
+                      });
+                    },
+                  ),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {

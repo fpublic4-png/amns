@@ -29,6 +29,7 @@ class _EditStudentFormState extends State<EditStudentForm> {
   late TextEditingController _fatherNameController;
   late TextEditingController _fatherPhoneController;
   late TextEditingController _motherNameController;
+  bool _passwordVisible = false;
 
   final List<String> _houses = ['Earth', 'Uranus', 'Saturn', 'Mars'];
   final List<String> _sections = ['Sec A', 'Sec B', 'Sec C', 'Sec D', 'Sec E'];
@@ -159,10 +160,22 @@ class _EditStudentFormState extends State<EditStudentForm> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
+                obscureText: !_passwordVisible,
+                decoration: InputDecoration(
                   labelText: 'Password',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _passwordVisible
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _passwordVisible = !_passwordVisible;
+                      });
+                    },
+                  ),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -204,7 +217,7 @@ class _EditStudentFormState extends State<EditStudentForm> {
                         labelText: 'House',
                         border: OutlineInputBorder(),
                       ),
-                      initialValue: _selectedHouse,
+                      value: _selectedHouse,
                       items: _houses.map((String house) {
                         return DropdownMenuItem<String>(
                           value: house,
@@ -225,7 +238,7 @@ class _EditStudentFormState extends State<EditStudentForm> {
                         labelText: 'Section',
                         border: OutlineInputBorder(),
                       ),
-                      initialValue: _selectedSection,
+                      value: _selectedSection,
                       items: _sections.map((String section) {
                         return DropdownMenuItem<String>(
                           value: section,

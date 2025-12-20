@@ -219,6 +219,7 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
   String? _classTeacherClass;
   String? _classTeacherSection;
   Map<String, Map<String, bool>> _classesTaught = {};
+  bool _passwordVisible = false;
 
   final List<String> _houses = ['Earth', 'Uranus', 'Saturn', 'Mars'];
   final List<String> _classes = [
@@ -374,8 +375,22 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
               ),
               TextFormField(
                 controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Password'),
-                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _passwordVisible
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _passwordVisible = !_passwordVisible;
+                      });
+                    },
+                  ),
+                ),
+                obscureText: !_passwordVisible,
                 validator: (value) => value == null || value.isEmpty
                     ? 'Please enter a password'
                     : null,
@@ -385,7 +400,7 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                 decoration: const InputDecoration(labelText: 'Phone'),
               ),
               DropdownButtonFormField<String>(
-                initialValue: _selectedHouse,
+                value: _selectedHouse,
                 hint: const Text('Select House'),
                 items: _houses
                     .map(
@@ -427,7 +442,7 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                     );
                   }).toList(),
                 );
-              }),
+              }).toList(),
               CheckboxListTile(
                 title: const Text('Is Class Teacher?'),
                 value: _isClassTeacher,
@@ -438,7 +453,7 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: _classTeacherClass,
+                        value: _classTeacherClass,
                         hint: const Text('Select Class'),
                         items: _classes
                             .map(
@@ -455,7 +470,7 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: _classTeacherSection,
+                        value: _classTeacherSection,
                         hint: const Text('Select Section'),
                         items: _sections
                             .map(
