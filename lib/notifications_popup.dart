@@ -10,7 +10,8 @@ class NotificationsPopup extends StatefulWidget {
   State<NotificationsPopup> createState() => _NotificationsPopupState();
 }
 
-class _NotificationsPopupState extends State<NotificationsPopup> with SingleTickerProviderStateMixin {
+class _NotificationsPopupState extends State<NotificationsPopup>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List<Map<String, String>> _notifications = [];
   List<Map<String, String>> _homework = [];
@@ -46,46 +47,81 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
         return;
       }
 
-      final studentDoc = await FirebaseFirestore.instance.collection('students').doc(userId).get();
+      final studentDoc = await FirebaseFirestore.instance
+          .collection('students')
+          .doc(userId)
+          .get();
       if (studentDoc.exists) {
         final data = studentDoc.data();
         _studentClass = data?['class'];
         _studentSection = data?['section'];
       } else {
-        final studentQuery = await FirebaseFirestore.instance.collection('students').where('studentId', isEqualTo: userId).get();
+        final studentQuery = await FirebaseFirestore.instance
+            .collection('students')
+            .where('studentId', isEqualTo: userId)
+            .get();
         if (studentQuery.docs.isNotEmpty) {
-           final data = studentQuery.docs.first.data();
-           _studentClass = data['class'];
-           _studentSection = data['section'];
+          final data = studentQuery.docs.first.data();
+          _studentClass = data['class'];
+          _studentSection = data['section'];
         }
       }
-      developer.log('Student Details Fetched: Class: $_studentClass, Section: $_studentSection', name: 'myapp.fetch');
+      developer.log(
+        'Student Details Fetched: Class: $_studentClass, Section: $_studentSection',
+        name: 'myapp.fetch',
+      );
     } catch (e, s) {
-      developer.log('Error fetching student details', name: 'myapp.notifications', error: e, stackTrace: s);
+      developer.log(
+        'Error fetching student details',
+        name: 'myapp.notifications',
+        error: e,
+        stackTrace: s,
+      );
     }
   }
 
   Future<void> _fetchMessages() async {
     if (_studentClass == null) {
-      developer.log('Student class is null. Aborting message fetch.', name: 'myapp.fetch');
+      developer.log(
+        'Student class is null. Aborting message fetch.',
+        name: 'myapp.fetch',
+      );
       return;
     }
 
     try {
       // --- NOTIFICATIONS: Keep the working multi-query approach ---
       final Map<String, Map<String, dynamic>> allNotifications = {};
-      final everyoneNotifications = await FirebaseFirestore.instance.collection('notifications').where('recipientType', isEqualTo: 'Everyone').get();
-      for (var doc in everyoneNotifications.docs) { allNotifications[doc.id] = doc.data(); }
-      final wholeClassNotifications = await FirebaseFirestore.instance.collection('notifications').where('recipientType', isEqualTo: 'Whole Class').where('class', isEqualTo: _studentClass).get();
-      for (var doc in wholeClassNotifications.docs) { allNotifications[doc.id] = doc.data(); }
+      final everyoneNotifications = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('recipientType', isEqualTo: 'Everyone')
+          .get();
+      for (var doc in everyoneNotifications.docs) {
+        allNotifications[doc.id] = doc.data();
+      }
+      final wholeClassNotifications = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('recipientType', isEqualTo: 'Whole Class')
+          .where('class', isEqualTo: _studentClass)
+          .get();
+      for (var doc in wholeClassNotifications.docs) {
+        allNotifications[doc.id] = doc.data();
+      }
       if (_studentSection != null && _studentSection!.isNotEmpty) {
-        final specificSectionNotifications = await FirebaseFirestore.instance.collection('notifications').where('recipientType', isEqualTo: 'Specific Class/Section').where('class', isEqualTo: _studentClass).where('section', isEqualTo: _studentSection).get();
-        for (var doc in specificSectionNotifications.docs) { allNotifications[doc.id] = doc.data(); }
+        final specificSectionNotifications = await FirebaseFirestore.instance
+            .collection('notifications')
+            .where('recipientType', isEqualTo: 'Specific Class/Section')
+            .where('class', isEqualTo: _studentClass)
+            .where('section', isEqualTo: _studentSection)
+            .get();
+        for (var doc in specificSectionNotifications.docs) {
+          allNotifications[doc.id] = doc.data();
+        }
       }
       final notificationsList = allNotifications.values.toList();
       notificationsList.sort((a, b) {
-        final timestampA = a['timestamp'] as Timestamp? ?? Timestamp(0,0);
-        final timestampB = b['timestamp'] as Timestamp? ?? Timestamp(0,0);
+        final timestampA = a['timestamp'] as Timestamp? ?? Timestamp(0, 0);
+        final timestampB = b['timestamp'] as Timestamp? ?? Timestamp(0, 0);
         return timestampB.compareTo(timestampA);
       });
       _notifications = notificationsList.map((data) {
@@ -94,34 +130,50 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
           'message': data['message'] as String? ?? 'No Message',
         };
       }).toList();
-      developer.log('Fetched ${_notifications.length} notifications using multi-query.', name: 'myapp.fetch');
-
+      developer.log(
+        'Fetched ${_notifications.length} notifications using multi-query.',
+        name: 'myapp.fetch',
+      );
 
       // --- HOMEWORK: Use Robust Client-Side Filtering ---
-      final homeworkSnapshot = await FirebaseFirestore.instance.collection('homework').get();
-      developer.log('Fetched ${homeworkSnapshot.docs.length} total homework documents for client-side filtering.', name: 'myapp.fetch');
+      final homeworkSnapshot = await FirebaseFirestore.instance
+          .collection('homework')
+          .get();
+      developer.log(
+        'Fetched ${homeworkSnapshot.docs.length} total homework documents for client-side filtering.',
+        name: 'myapp.fetch',
+      );
 
       final Map<String, Map<String, dynamic>> allHomework = {};
-      
+
       for (var doc in homeworkSnapshot.docs) {
         final data = doc.data();
         final hwClass = data['class'] as String?;
         final hwSection = data['section'] as String?;
 
-        final bool isForEveryone = (hwClass == null || hwClass.isEmpty || hwClass.toLowerCase() == 'everyone');
-        final bool isForMyClass = (hwClass == _studentClass && (hwSection == null || hwSection.isEmpty));
-        final bool isForMySection = (hwClass == _studentClass && hwSection == _studentSection);
+        final bool isForEveryone =
+            (hwClass == null ||
+            hwClass.isEmpty ||
+            hwClass.toLowerCase() == 'everyone');
+        final bool isForMyClass =
+            (hwClass == _studentClass &&
+            (hwSection == null || hwSection.isEmpty));
+        final bool isForMySection =
+            (hwClass == _studentClass && hwSection == _studentSection);
 
         if (isForEveryone || isForMyClass || isForMySection) {
           allHomework[doc.id] = data;
-          developer.log('Found relevant homework: ${data['title']}', name: 'myapp.homework');
+          developer.log(
+            'Found relevant homework: ${data['title']}',
+            name: 'myapp.homework',
+          );
         }
       }
 
       final homeworkList = allHomework.values.toList();
       homeworkList.sort((a, b) {
-        final timestampA = a['createdAt'] as Timestamp? ?? Timestamp(0,0);
-        final timestampB = b['createdAt'] as Timestamp? ?? Timestamp(0,0);
+        final timestampA = a['createdAt'] as Timestamp? ?? Timestamp(0, 0);
+        final timestampB = b['createdAt'] as Timestamp? ?? Timestamp(0, 0);
         return timestampB.compareTo(timestampA); // Sort descending
       });
 
@@ -133,11 +185,18 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
         };
       }).toList();
 
-      developer.log('FINAL: Processed ${_notifications.length} notifications and ${_homework.length} homework items.', name: 'myapp.fetch');
-
+      developer.log(
+        'FINAL: Processed ${_notifications.length} notifications and ${_homework.length} homework items.',
+        name: 'myapp.fetch',
+      );
     } catch (e, s) {
-      developer.log('Error during message fetch', name: 'myapp.fetch', error: e, stackTrace: s);
-       _notifications = [];
+      developer.log(
+        'Error during message fetch',
+        name: 'myapp.fetch',
+        error: e,
+        stackTrace: s,
+      );
+      _notifications = [];
       _homework = [];
     }
   }
@@ -188,10 +247,7 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
                 ? const Center(child: CircularProgressIndicator())
                 : TabBarView(
                     controller: _tabController,
-                    children: [
-                      _buildNotificationList(),
-                      _buildHomeworkList(),
-                    ],
+                    children: [_buildNotificationList(), _buildHomeworkList()],
                   ),
           ),
         ],
@@ -201,10 +257,12 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
 
   Widget _buildNotificationList() {
     if (_notifications.isEmpty) {
-      return const Center(child: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Text('You have no new notifications.'),
-      ));
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text('You have no new notifications.'),
+        ),
+      );
     }
     return ListView.builder(
       itemCount: _notifications.length,
@@ -218,12 +276,14 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
     );
   }
 
-   Widget _buildHomeworkList() {
+  Widget _buildHomeworkList() {
     if (_homework.isEmpty) {
-      return const Center(child: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Text('You have no new homework.'),
-      ));
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text('You have no new homework.'),
+        ),
+      );
     }
     return ListView.builder(
       itemCount: _homework.length,
@@ -236,7 +296,10 @@ class _NotificationsPopupState extends State<NotificationsPopup> with SingleTick
             children: [
               Text(hw['description']!),
               const SizedBox(height: 4),
-              Text('Due: ${hw['dueDate']}', style: const TextStyle(fontStyle: FontStyle.italic)),
+              Text(
+                'Due: ${hw['dueDate']}',
+                style: const TextStyle(fontStyle: FontStyle.italic),
+              ),
             ],
           ),
         );

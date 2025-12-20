@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,9 +23,7 @@ class TeacherDashboard extends StatelessWidget {
           ),
         ],
       ),
-      body: const Center(
-        child: Text('Welcome, Teacher!'),
-      ),
+      body: const Center(child: Text('Welcome, Teacher!')),
     );
   }
 }

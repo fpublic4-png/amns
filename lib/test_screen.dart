@@ -27,7 +27,10 @@ class _TestScreenState extends State<TestScreen> {
 
   Future<void> _fetchQuestions() async {
     try {
-      final testDoc = await FirebaseFirestore.instance.collection('tests').doc(widget.testId).get();
+      final testDoc = await FirebaseFirestore.instance
+          .collection('tests')
+          .doc(widget.testId)
+          .get();
 
       if (testDoc.exists) {
         final testData = testDoc.data();
@@ -38,10 +41,12 @@ class _TestScreenState extends State<TestScreen> {
           _questions = List<Map<String, dynamic>>.from(
             questionsData.asMap().entries.map((entry) {
               int index = entry.key;
-              Map<String, dynamic> question = Map<String, dynamic>.from(entry.value);
+              Map<String, dynamic> question = Map<String, dynamic>.from(
+                entry.value,
+              );
               question['id'] = 'question_$index';
               return question;
-            })
+            }),
           );
         } else {
           _questions = [];
@@ -54,7 +59,12 @@ class _TestScreenState extends State<TestScreen> {
         _isLoading = false;
       });
     } catch (e, s) {
-      developer.log('Error fetching questions', name: 'myapp.test_screen', error: e, stackTrace: s);
+      developer.log(
+        'Error fetching questions',
+        name: 'myapp.test_screen',
+        error: e,
+        stackTrace: s,
+      );
       setState(() {
         _isLoading = false;
       });
@@ -66,7 +76,10 @@ class _TestScreenState extends State<TestScreen> {
     final userId = prefs.getString('userId');
 
     if (userId == null) {
-      developer.log('Cannot submit test without a user ID.', name: 'myapp.test_screen');
+      developer.log(
+        'Cannot submit test without a user ID.',
+        name: 'myapp.test_screen',
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Error: You are not logged in.')),
       );
@@ -78,7 +91,9 @@ class _TestScreenState extends State<TestScreen> {
     for (final questionId in _selectedAnswersByText.keys) {
       final questionIndex = int.parse(questionId.split('_')[1]);
       final question = _questions[questionIndex];
-      final options = List<String>.from(question['options']?.map((e) => e.toString()) ?? []);
+      final options = List<String>.from(
+        question['options']?.map((e) => e.toString()) ?? [],
+      );
       final selectedAnswerString = _selectedAnswersByText[questionId];
       final selectedIndex = options.indexOf(selectedAnswerString!);
 
@@ -95,20 +110,33 @@ class _TestScreenState extends State<TestScreen> {
         'submittedAt': FieldValue.serverTimestamp(),
       };
 
-      await FirebaseFirestore.instance.collection('test_submissions').add(submission);
+      await FirebaseFirestore.instance
+          .collection('test_submissions')
+          .add(submission);
 
-      developer.log('Test submission successful for user $userId with indices', name: 'myapp.test_screen');
+      developer.log(
+        'Test submission successful for user $userId with indices',
+        name: 'myapp.test_screen',
+      );
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Test submitted successfully!')),
       );
       // Use pop until the tests page is visible to trigger a refresh
       Navigator.pop(context);
-
     } catch (e, s) {
-      developer.log('Error submitting test', name: 'myapp.test_screen', error: e, stackTrace: s);
+      developer.log(
+        'Error submitting test',
+        name: 'myapp.test_screen',
+        error: e,
+        stackTrace: s,
+      );
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('An error occurred while submitting. Please try again.')),
+        const SnackBar(
+          content: Text(
+            'An error occurred while submitting. Please try again.',
+          ),
+        ),
       );
     }
   }
@@ -116,48 +144,48 @@ class _TestScreenState extends State<TestScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_testTitle),
-        backgroundColor: Colors.green,
-      ),
+      appBar: AppBar(title: Text(_testTitle), backgroundColor: Colors.green),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _questions.isEmpty
-              ? const Center(child: Text('No questions found for this test.'))
-              : Column(
-                  children: [
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16.0),
-                        itemCount: _questions.length,
-                        itemBuilder: (context, index) {
-                          final question = _questions[index];
-                          return QuestionWidget(
-                            question: question,
-                            questionNumber: index + 1,
-                            selectedAnswer: _selectedAnswersByText[question['id']],
-                            onAnswerSelected: (answer) {
-                              setState(() {
-                                _selectedAnswersByText[question['id']] = answer;
-                              });
-                            },
-                          );
+          ? const Center(child: Text('No questions found for this test.'))
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16.0),
+                    itemCount: _questions.length,
+                    itemBuilder: (context, index) {
+                      final question = _questions[index];
+                      return QuestionWidget(
+                        question: question,
+                        questionNumber: index + 1,
+                        selectedAnswer: _selectedAnswersByText[question['id']],
+                        onAnswerSelected: (answer) {
+                          setState(() {
+                            _selectedAnswersByText[question['id']] = answer;
+                          });
                         },
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: ElevatedButton(
-                        onPressed: _submitTest,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          minimumSize: const Size(double.infinity, 50),
-                        ),
-                        child: const Text('Submit Test', style: TextStyle(fontSize: 18, color: Colors.white)),
-                      ),
-                    ),
-                  ],
+                      );
+                    },
+                  ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: ElevatedButton(
+                    onPressed: _submitTest,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
+                    child: const Text(
+                      'Submit Test',
+                      style: TextStyle(fontSize: 18, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
@@ -178,7 +206,9 @@ class QuestionWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final options = List<String>.from(question['options']?.map((e) => e.toString()) ?? []);
+    final options = List<String>.from(
+      question['options']?.map((e) => e.toString()) ?? [],
+    );
 
     return Card(
       margin: const EdgeInsets.only(bottom: 20.0),

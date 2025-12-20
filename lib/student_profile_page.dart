@@ -29,7 +29,10 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId');
       if (userId == null) {
-        developer.log('User ID not found in SharedPreferences', name: 'myapp.student_profile');
+        developer.log(
+          'User ID not found in SharedPreferences',
+          name: 'myapp.student_profile',
+        );
         return;
       }
 
@@ -64,7 +67,9 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
   }
 
   Future<void> _pickImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+    final pickedFile = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+    );
     if (pickedFile != null) {
       setState(() {
         _image = File(pickedFile.path);
@@ -79,7 +84,9 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId');
-      final storageRef = FirebaseStorage.instance.ref().child('profile_pictures/$userId');
+      final storageRef = FirebaseStorage.instance.ref().child(
+        'profile_pictures/$userId',
+      );
       await storageRef.putFile(_image!);
       final downloadUrl = await storageRef.getDownloadURL();
 
@@ -89,7 +96,9 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
           .get();
 
       if (studentQuery.docs.isNotEmpty) {
-        await studentQuery.docs.first.reference.update({'profileImageUrl': downloadUrl});
+        await studentQuery.docs.first.reference.update({
+          'profileImageUrl': downloadUrl,
+        });
         setState(() {
           _profileImageUrl = downloadUrl;
         });
@@ -108,7 +117,10 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'My Profile',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         actions: [
           TextButton.icon(
             onPressed: _logout,
@@ -130,20 +142,31 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                       backgroundImage: _profileImageUrl != null
                           ? NetworkImage(_profileImageUrl!)
                           : _image != null
-                              ? FileImage(_image!) as ImageProvider
-                              : const AssetImage('assets/placeholder.png'), // Add a placeholder image
+                          ? FileImage(_image!) as ImageProvider
+                          : const AssetImage(
+                              'assets/placeholder.png',
+                            ), // Add a placeholder image
                       child: const Align(
                         alignment: Alignment.bottomRight,
-                        child: Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                        child: Icon(
+                          Icons.camera_alt,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     _studentData?['name'] ?? '',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  Text(_studentData?['studentId'] ?? '', style: Theme.of(context).textTheme.bodyMedium),
+                  Text(
+                    _studentData?['studentId'] ?? '',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                   const SizedBox(height: 24),
                   Card(
                     child: Padding(
@@ -151,11 +174,31 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildProfileDetail(Icons.class_, 'Class', _studentData?['class'] ?? ''),
-                          _buildProfileDetail(Icons.home_work, 'House', _studentData?['house'] ?? ''),
-                          _buildProfileDetail(Icons.email, 'Email', _studentData?['email'] ?? ''),
-                          _buildProfileDetail(Icons.phone, 'Phone', _studentData?['phone'] ?? ''),
-                          _buildProfileDetail(Icons.location_on, 'Address', _studentData?['address'] ?? ''),
+                          _buildProfileDetail(
+                            Icons.class_,
+                            'Class',
+                            _studentData?['class'] ?? '',
+                          ),
+                          _buildProfileDetail(
+                            Icons.home_work,
+                            'House',
+                            _studentData?['house'] ?? '',
+                          ),
+                          _buildProfileDetail(
+                            Icons.email,
+                            'Email',
+                            _studentData?['email'] ?? '',
+                          ),
+                          _buildProfileDetail(
+                            Icons.phone,
+                            'Phone',
+                            _studentData?['phone'] ?? '',
+                          ),
+                          _buildProfileDetail(
+                            Icons.location_on,
+                            'Address',
+                            _studentData?['address'] ?? '',
+                          ),
                         ],
                       ),
                     ),
@@ -163,7 +206,11 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                   const SizedBox(height: 24),
                   const Text(
                     'Parent/Guardian Information',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Card(
@@ -172,9 +219,21 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildProfileDetail(Icons.person_outline, 'Father\'s Name', _studentData?['fatherName'] ?? ''),
-                          _buildProfileDetail(Icons.phone, 'Father\'s Phone', _studentData?['fatherPhone'] ?? ''),
-                          _buildProfileDetail(Icons.person_outline, 'Mother\'s Name', _studentData?['motherName'] ?? ''),
+                          _buildProfileDetail(
+                            Icons.person_outline,
+                            'Father\'s Name',
+                            _studentData?['fatherName'] ?? '',
+                          ),
+                          _buildProfileDetail(
+                            Icons.phone,
+                            'Father\'s Phone',
+                            _studentData?['fatherPhone'] ?? '',
+                          ),
+                          _buildProfileDetail(
+                            Icons.person_outline,
+                            'Mother\'s Name',
+                            _studentData?['motherName'] ?? '',
+                          ),
                         ],
                       ),
                     ),

@@ -14,6 +14,7 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
   final _studentIdController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  bool _rememberMe = false;
 
   @override
   void initState() {
@@ -23,11 +24,13 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
 
   Future<void> _loadSavedCredentials() async {
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getString('userRole') == 'student') {
+    final rememberMe = prefs.getBool('rememberMe') ?? false;
+    if (rememberMe && prefs.getString('userRole') == 'student') {
       final userId = prefs.getString('userId');
       if (userId != null) {
         setState(() {
           _studentIdController.text = userId;
+          _rememberMe = rememberMe;
         });
       }
     }
@@ -44,7 +47,13 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
       if (studentQuery.docs.isNotEmpty) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('userRole', 'student');
-        await prefs.setString('userId', _studentIdController.text.trim());
+        if (_rememberMe) {
+          await prefs.setString('userId', _studentIdController.text.trim());
+          await prefs.setBool('rememberMe', true);
+        } else {
+          await prefs.remove('userId');
+          await prefs.setBool('rememberMe', false);
+        }
 
         if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/student_dashboard');
@@ -58,7 +67,9 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
         error: e,
         stackTrace: s,
       );
-      _showErrorDialog('An error occurred. Please check the debug console for details.');
+      _showErrorDialog(
+        'An error occurred. Please check the debug console for details.',
+      );
     }
   }
 
@@ -124,10 +135,7 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
                 const Text(
                   'Enter your Student ID and password to continue',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(color: Colors.grey, fontSize: 16),
                 ),
                 const SizedBox(height: 32),
                 TextFormField(
@@ -162,7 +170,21 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _rememberMe,
+                      onChanged: (value) {
+                        setState(() {
+                          _rememberMe = value!;
+                        });
+                      },
+                    ),
+                    const Text('Remember me'),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: _login,
                   icon: const Icon(Icons.arrow_forward, color: Colors.white),

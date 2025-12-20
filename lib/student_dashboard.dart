@@ -6,6 +6,7 @@ import 'dart:developer' as developer;
 import 'student_profile_page.dart';
 import 'notifications_popup.dart';
 import 'tests_page.dart'; // Import the new tests page
+import 'ai_doubt_screen.dart';
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
@@ -29,22 +30,31 @@ class _StudentDashboardState extends State<StudentDashboard> {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId');
       if (userId == null) {
-        developer.log('User ID not found in SharedPreferences', name: 'myapp.student_dashboard');
+        developer.log(
+          'User ID not found in SharedPreferences',
+          name: 'myapp.student_dashboard',
+        );
         return;
       }
 
-      final studentDoc = await FirebaseFirestore.instance.collection('students').doc(userId).get();
+      final studentDoc = await FirebaseFirestore.instance
+          .collection('students')
+          .doc(userId)
+          .get();
       if (studentDoc.exists) {
         setState(() {
           _studentName = studentDoc.data()?['name'] ?? 'Student';
         });
       } else {
-         final studentQuery = await FirebaseFirestore.instance.collection('students').where('studentId', isEqualTo: userId).get();
-         if (studentQuery.docs.isNotEmpty) {
-           setState(() {
-             _studentName = studentQuery.docs.first.data()['name'] ?? 'Student';
-           });
-         }
+        final studentQuery = await FirebaseFirestore.instance
+            .collection('students')
+            .where('studentId', isEqualTo: userId)
+            .get();
+        if (studentQuery.docs.isNotEmpty) {
+          setState(() {
+            _studentName = studentQuery.docs.first.data()['name'] ?? 'Student';
+          });
+        }
       }
     } catch (e, s) {
       developer.log(
@@ -57,9 +67,16 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AiDoubtScreen()),
+      );
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   void _showNotificationsPopup() {
@@ -84,11 +101,17 @@ class _StudentDashboardState extends State<StudentDashboard> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeIn,
-        transform: isSelected ? (Matrix4.identity()..scale(1.2)) : Matrix4.identity(),
+        transform: isSelected
+            ? (Matrix4.identity()..scale(1.2))
+            : Matrix4.identity(),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: isSelected ? Colors.green : Colors.grey, size: 24),
+            Icon(
+              icon,
+              color: isSelected ? Colors.green : Colors.grey,
+              size: 24,
+            ),
             const SizedBox(height: 2),
             Text(
               label,
@@ -105,34 +128,36 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   @override
   Widget build(BuildContext context) {
-
     final List<Widget> widgetOptions = <Widget>[
       HomeTab(studentName: _studentName),
       const Center(child: Text('Study Material Page')),
-      const Center(child: Text('AI Doubt Solver Page')),
-      const TestsPage(), // Replace placeholder with the new TestsPage
+      Container(), // Empty container for the AI Doubt page, as we are navigating to it.
+      const TestsPage(),
       const Center(child: Text('PYQs Page')),
     ];
 
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text('SaiLearn', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'SaiLearn',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_none),
-            onPressed: _showNotificationsPopup, 
+            onPressed: _showNotificationsPopup,
           ),
           GestureDetector(
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const StudentProfilePage()),
+                MaterialPageRoute(
+                  builder: (context) => const StudentProfilePage(),
+                ),
               );
             },
-            child: const CircleAvatar(
-              child: Text('A'),
-            ),
+            child: const CircleAvatar(child: Text('A')),
           ),
           const SizedBox(width: 16),
         ],
@@ -184,7 +209,7 @@ class HomeTab extends StatelessWidget {
               children: <Widget>[
                 ListTile(
                   title: Text('Details about attendance will be shown here.'),
-                )
+                ),
               ],
             ),
           ),

@@ -1,4 +1,3 @@
-
 class MyFirebaseConfig {
   static const Map<String, String> config = {
     'apiKey': 'AIzaSyBEwenUgXeJgWh3Zb_mH2CVpT1wliRdfNE',

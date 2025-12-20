@@ -58,7 +58,9 @@ class _TeacherLoginPageState extends State<TeacherLoginPage> {
         error: e,
         stackTrace: s,
       );
-      _showErrorDialog('An error occurred. Please check the debug console for details.');
+      _showErrorDialog(
+        'An error occurred. Please check the debug console for details.',
+      );
     }
   }
 
@@ -124,10 +126,7 @@ class _TeacherLoginPageState extends State<TeacherLoginPage> {
                 const Text(
                   'Enter your Teacher ID and password to continue',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(color: Colors.grey, fontSize: 16),
                 ),
                 const SizedBox(height: 32),
                 TextFormField(

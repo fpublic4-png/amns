@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:myapp/teacher_login_page.dart';
 import 'package:myapp/admin_login_page.dart';
@@ -50,10 +49,7 @@ class StaffSelectionPage extends StatelessWidget {
                 const Text(
                   'Are you a Teacher or an Admin?',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(color: Colors.grey, fontSize: 16),
                 ),
                 const SizedBox(height: 32),
                 _buildLoginButton(
@@ -64,7 +60,9 @@ class StaffSelectionPage extends StatelessWidget {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const TeacherLoginPage()),
+                      MaterialPageRoute(
+                        builder: (context) => const TeacherLoginPage(),
+                      ),
                     );
                   },
                 ),
@@ -77,7 +75,9 @@ class StaffSelectionPage extends StatelessWidget {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const AdminLoginPage()),
+                      MaterialPageRoute(
+                        builder: (context) => const AdminLoginPage(),
+                      ),
                     );
                   },
                 ),
@@ -89,7 +89,13 @@ class StaffSelectionPage extends StatelessWidget {
     );
   }
 
-  Widget _buildLoginButton(BuildContext context, {required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+  Widget _buildLoginButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return ElevatedButton.icon(
       onPressed: onTap,
       icon: Icon(icon, color: Colors.white),
@@ -98,9 +104,7 @@ class StaffSelectionPage extends StatelessWidget {
         foregroundColor: Colors.white,
         backgroundColor: color,
         minimumSize: const Size(double.infinity, 56),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 3,
       ),
     );

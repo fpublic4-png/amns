@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 class AiDoubtScreen extends StatefulWidget {
@@ -43,7 +42,14 @@ class _AiDoubtScreenState extends State<AiDoubtScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       appBar: AppBar(
-        title: const Text('Ask the AI', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          'Ask the AI',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
         backgroundColor: Colors.white,
         elevation: 1,
       ),
@@ -66,7 +72,11 @@ class _AiDoubtScreenState extends State<AiDoubtScreen> {
           children: [
             const Text(
               'AI Doubt Solver',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF333333)),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF333333),
+              ),
             ),
             const SizedBox(height: 16),
             _buildInputToggle(),
@@ -85,7 +95,9 @@ class _AiDoubtScreenState extends State<AiDoubtScreen> {
     final Color deselectedColor = Colors.grey.shade600;
     final Color selectedBgColor = Colors.white;
     final Color deselectedBgColor = Colors.transparent;
-    final Color toggleBgColor = const Color(0xFFE8F5E9); // A light green background for the toggle
+    final Color toggleBgColor = const Color(
+      0xFFE8F5E9,
+    ); // A light green background for the toggle
 
     return Container(
       decoration: BoxDecoration(
@@ -102,17 +114,34 @@ class _AiDoubtScreenState extends State<AiDoubtScreen> {
                 decoration: BoxDecoration(
                   color: _isTextDoubt ? selectedBgColor : deselectedBgColor,
                   borderRadius: BorderRadius.circular(10),
-                  border: _isTextDoubt ? Border.all(color: Colors.green, width: 1.5) : null,
+                  border: _isTextDoubt
+                      ? Border.all(color: Colors.green, width: 1.5)
+                      : null,
                   boxShadow: _isTextDoubt
-                      ? [BoxShadow(color: Colors.green.withOpacity(0.2), spreadRadius: 2, blurRadius: 5)]
+                      ? [
+                          BoxShadow(
+                            color: Colors.green.withOpacity(0.2),
+                            spreadRadius: 2,
+                            blurRadius: 5,
+                          ),
+                        ]
                       : [],
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.text_fields_rounded, color: _isTextDoubt ? selectedColor : deselectedColor),
+                    Icon(
+                      Icons.text_fields_rounded,
+                      color: _isTextDoubt ? selectedColor : deselectedColor,
+                    ),
                     const SizedBox(width: 8),
-                    Text('Type Doubt', style: TextStyle(fontWeight: FontWeight.bold, color: _isTextDoubt ? selectedColor : deselectedColor)),
+                    Text(
+                      'Type Doubt',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: _isTextDoubt ? selectedColor : deselectedColor,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -126,17 +155,34 @@ class _AiDoubtScreenState extends State<AiDoubtScreen> {
                 decoration: BoxDecoration(
                   color: !_isTextDoubt ? selectedBgColor : deselectedBgColor,
                   borderRadius: BorderRadius.circular(10),
-                  border: !_isTextDoubt ? Border.all(color: Colors.green, width: 1.5) : null,
+                  border: !_isTextDoubt
+                      ? Border.all(color: Colors.green, width: 1.5)
+                      : null,
                   boxShadow: !_isTextDoubt
-                      ? [BoxShadow(color: Colors.green.withOpacity(0.2), spreadRadius: 2, blurRadius: 5)]
+                      ? [
+                          BoxShadow(
+                            color: Colors.green.withOpacity(0.2),
+                            spreadRadius: 2,
+                            blurRadius: 5,
+                          ),
+                        ]
                       : [],
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.image_outlined, color: !_isTextDoubt ? selectedColor : deselectedColor),
+                    Icon(
+                      Icons.image_outlined,
+                      color: !_isTextDoubt ? selectedColor : deselectedColor,
+                    ),
                     const SizedBox(width: 8),
-                    Text('Upload Image', style: TextStyle(fontWeight: FontWeight.bold, color: !_isTextDoubt ? selectedColor : deselectedColor)),
+                    Text(
+                      'Upload Image',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: !_isTextDoubt ? selectedColor : deselectedColor,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -153,7 +199,11 @@ class _AiDoubtScreenState extends State<AiDoubtScreen> {
       children: [
         const Text(
           'Type your question below',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF555555)),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF555555),
+          ),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -192,15 +242,26 @@ class _AiDoubtScreenState extends State<AiDoubtScreen> {
         decoration: BoxDecoration(
           color: Colors.grey.shade100,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300, width: 1.5, style: BorderStyle.solid),
+          border: Border.all(
+            color: Colors.grey.shade300,
+            width: 1.5,
+            style: BorderStyle.solid,
+          ),
         ),
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.cloud_upload_outlined, color: Colors.grey.shade500, size: 40),
+              Icon(
+                Icons.cloud_upload_outlined,
+                color: Colors.grey.shade500,
+                size: 40,
+              ),
               const SizedBox(height: 8),
-              Text('Tap to select an image', style: TextStyle(color: Colors.grey.shade600)),
+              Text(
+                'Tap to select an image',
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
             ],
           ),
         ),
@@ -224,7 +285,10 @@ class _AiDoubtScreenState extends State<AiDoubtScreen> {
         children: [
           Icon(Icons.auto_awesome, size: 20), // Using a different sparkle icon
           SizedBox(width: 10),
-          Text('Solve Doubt', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(
+            'Solve Doubt',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );

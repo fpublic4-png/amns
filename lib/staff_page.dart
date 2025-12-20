@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:myapp/login_page.dart';
 import 'package:myapp/teacher_login_page.dart';
@@ -59,9 +58,7 @@ class StaffPage extends StatelessWidget {
                       const Text(
                         'Are you a Teacher or an Admin?',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.grey,
-                        ),
+                        style: TextStyle(color: Colors.grey),
                       ),
                       const SizedBox(height: 24),
                       ElevatedButton(
@@ -69,13 +66,16 @@ class StaffPage extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (context) => const TeacherLoginPage()),
+                              builder: (context) => const TeacherLoginPage(),
+                            ),
                           );
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 40, vertical: 16),
+                            horizontal: 40,
+                            vertical: 16,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8.0),
                           ),
@@ -85,8 +85,10 @@ class StaffPage extends StatelessWidget {
                           children: [
                             Icon(Icons.person, color: Colors.white),
                             SizedBox(width: 8),
-                            Text('Teacher Login',
-                                style: TextStyle(color: Colors.white)),
+                            Text(
+                              'Teacher Login',
+                              style: TextStyle(color: Colors.white),
+                            ),
                           ],
                         ),
                       ),
@@ -96,13 +98,16 @@ class StaffPage extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (context) => const AdminLoginPage()),
+                              builder: (context) => const AdminLoginPage(),
+                            ),
                           );
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green.shade800,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 40, vertical: 16),
+                            horizontal: 40,
+                            vertical: 16,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8.0),
                           ),
@@ -110,10 +115,15 @@ class StaffPage extends StatelessWidget {
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.admin_panel_settings, color: Colors.white),
+                            Icon(
+                              Icons.admin_panel_settings,
+                              color: Colors.white,
+                            ),
                             SizedBox(width: 8),
-                            Text('Admin Login',
-                                style: TextStyle(color: Colors.white)),
+                            Text(
+                              'Admin Login',
+                              style: TextStyle(color: Colors.white),
+                            ),
                           ],
                         ),
                       ),

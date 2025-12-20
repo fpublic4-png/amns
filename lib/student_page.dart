@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:myapp/login_page.dart';
 
@@ -64,9 +63,7 @@ class _StudentPageState extends State<StudentPage> {
                       const Text(
                         'Enter your Student ID and password to continue',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.grey,
-                        ),
+                        style: TextStyle(color: Colors.grey),
                       ),
                       const SizedBox(height: 24),
                       TextField(
@@ -105,7 +102,9 @@ class _StudentPageState extends State<StudentPage> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 40, vertical: 16),
+                            horizontal: 40,
+                            vertical: 16,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8.0),
                           ),
@@ -115,8 +114,10 @@ class _StudentPageState extends State<StudentPage> {
                           children: [
                             Icon(Icons.arrow_forward, color: Colors.white),
                             SizedBox(width: 8),
-                            Text('Sign In',
-                                style: TextStyle(color: Colors.white)),
+                            Text(
+                              'Sign In',
+                              style: TextStyle(color: Colors.white),
+                            ),
                           ],
                         ),
                       ),

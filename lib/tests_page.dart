@@ -13,7 +13,8 @@ class TestsPage extends StatefulWidget {
   State<TestsPage> createState() => _TestsPageState();
 }
 
-class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMixin {
+class _TestsPageState extends State<TestsPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List<Map<String, dynamic>> _weeklyTests = [];
   List<Map<String, dynamic>> _monthlyTests = [];
@@ -58,19 +59,30 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
         return;
       }
 
-      final studentDoc = await FirebaseFirestore.instance.collection('students').doc(_userId).get();
-       if (studentDoc.exists) {
+      final studentDoc = await FirebaseFirestore.instance
+          .collection('students')
+          .doc(_userId)
+          .get();
+      if (studentDoc.exists) {
         final data = studentDoc.data();
         _studentClass = data?['class'];
       } else {
-         final studentQuery = await FirebaseFirestore.instance.collection('students').where('studentId', isEqualTo: _userId).get();
+        final studentQuery = await FirebaseFirestore.instance
+            .collection('students')
+            .where('studentId', isEqualTo: _userId)
+            .get();
         if (studentQuery.docs.isNotEmpty) {
-           final data = studentQuery.docs.first.data();
+          final data = studentQuery.docs.first.data();
           _studentClass = data['class'];
         }
       }
     } catch (e, s) {
-      developer.log('Error fetching student details', name: 'myapp.tests', error: e, stackTrace: s);
+      developer.log(
+        'Error fetching student details',
+        name: 'myapp.tests',
+        error: e,
+        stackTrace: s,
+      );
     }
   }
 
@@ -98,14 +110,19 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
         }
       }
 
-      if(mounted) {
+      if (mounted) {
         setState(() {
           _weeklyTests = weekly;
           _monthlyTests = monthly;
         });
       }
     } catch (e, s) {
-      developer.log('Error fetching and sorting tests', name: 'myapp.tests', error: e, stackTrace: s);
+      developer.log(
+        'Error fetching and sorting tests',
+        name: 'myapp.tests',
+        error: e,
+        stackTrace: s,
+      );
     }
   }
 
@@ -123,12 +140,16 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
         final submissionData = submissionDoc.data();
         final testId = submissionData['testId'] as String;
 
-        final testDoc = await FirebaseFirestore.instance.collection('tests').doc(testId).get();
+        final testDoc = await FirebaseFirestore.instance
+            .collection('tests')
+            .doc(testId)
+            .get();
         if (!testDoc.exists) continue;
 
         final testData = testDoc.data()!;
         final questions = (testData['questions'] as List?) ?? [];
-        final submittedAnswers = (submissionData['answers'] as Map<String, dynamic>?) ?? {};
+        final submittedAnswers =
+            (submissionData['answers'] as Map<String, dynamic>?) ?? {};
 
         int correctCount = 0;
         for (int i = 0; i < questions.length; i++) {
@@ -137,23 +158,29 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
           final correctAnswerIndex = question['correctAnswerIndex'] as int?;
           final submittedAnswerIndex = submittedAnswers[questionId] as int?;
 
-          if (correctAnswerIndex != null && submittedAnswerIndex == correctAnswerIndex) {
+          if (correctAnswerIndex != null &&
+              submittedAnswerIndex == correctAnswerIndex) {
             correctCount++;
           }
         }
         scores[testId] = '$correctCount / ${questions.length}';
       }
 
-      if(mounted){
+      if (mounted) {
         setState(() {
           _testScores = scores;
         });
       }
     } catch (e, s) {
-      developer.log('Error fetching submissions and calculating scores', name: 'myapp.tests', error: e, stackTrace: s);
+      developer.log(
+        'Error fetching submissions and calculating scores',
+        name: 'myapp.tests',
+        error: e,
+        stackTrace: s,
+      );
     }
   }
-  
+
   void _navigateToTest(String testId) async {
     final result = await Navigator.push(
       context,
@@ -174,23 +201,39 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-             const Text(
+            const Text(
               'Available Tests',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF00C853)),
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF00C853),
+              ),
             ),
             const SizedBox(height: 20),
             // Restyled TabBar
             Container(
               height: 45,
-              decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(25.0)),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(25.0),
+              ),
               child: TabBar(
                 controller: _tabController,
                 indicator: const BoxDecoration(), // No sliding indicator
                 labelColor: Colors.green, // Selected text is green
                 unselectedLabelColor: Colors.black54, // Unselected text is grey
-                labelStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold), // Larger, bold text for selected tab
-                unselectedLabelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.normal), // Normal text for unselected tab
-                tabs: const [Tab(text: 'Weekly Tests'), Tab(text: 'Monthly Tests')],
+                labelStyle: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ), // Larger, bold text for selected tab
+                unselectedLabelStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.normal,
+                ), // Normal text for unselected tab
+                tabs: const [
+                  Tab(text: 'Weekly Tests'),
+                  Tab(text: 'Monthly Tests'),
+                ],
               ),
             ),
             const SizedBox(height: 20),
@@ -200,15 +243,19 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
                   ? const Center(child: CircularProgressIndicator())
                   : AnimatedSwitcher(
                       duration: const Duration(milliseconds: 300),
-                      transitionBuilder: (Widget child, Animation<double> animation) {
-                        return FadeTransition(opacity: animation, child: child);
-                      },
+                      transitionBuilder:
+                          (Widget child, Animation<double> animation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: child,
+                            );
+                          },
                       child: IndexedStack(
                         key: ValueKey<int>(_tabController.index),
                         index: _tabController.index,
                         children: [
-                           _buildTestList(_weeklyTests),
-                           _buildTestList(_monthlyTests),
+                          _buildTestList(_weeklyTests),
+                          _buildTestList(_monthlyTests),
                         ],
                       ),
                     ),
@@ -222,7 +269,10 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
   Widget _buildTestList(List<Map<String, dynamic>> tests) {
     if (tests.isEmpty) {
       return const Center(
-        child: Text('No tests have been assigned in this category.', style: TextStyle(fontSize: 16, color: Colors.grey)),
+        child: Text(
+          'No tests have been assigned in this category.',
+          style: TextStyle(fontSize: 16, color: Colors.grey),
+        ),
       );
     }
     return ListView.builder(
@@ -230,7 +280,11 @@ class _TestsPageState extends State<TestsPage> with SingleTickerProviderStateMix
       itemBuilder: (context, index) {
         final test = tests[index];
         final score = _testScores[test['id']];
-        return TestCard(test: test, score: score, onStartTest: () => _navigateToTest(test['id']));
+        return TestCard(
+          test: test,
+          score: score,
+          onStartTest: () => _navigateToTest(test['id']),
+        );
       },
     );
   }
@@ -241,39 +295,59 @@ class TestCard extends StatelessWidget {
   final String? score;
   final VoidCallback onStartTest;
 
-  const TestCard({super.key, required this.test, this.score, required this.onStartTest});
+  const TestCard({
+    super.key,
+    required this.test,
+    this.score,
+    required this.onStartTest,
+  });
 
   @override
   Widget build(BuildContext context) {
     String formattedDate = 'N/A';
     DateTime? testDate;
-     if (test['date'] is String) {
+    if (test['date'] is String) {
       try {
         testDate = DateTime.parse(test['date']);
         formattedDate = DateFormat('MMMM d, y').format(testDate);
       } catch (e) {
-        formattedDate = test['date']; 
+        formattedDate = test['date'];
       }
-    } 
+    }
 
     final questionsCount = (test['questions'] as List?)?.length ?? 0;
-    
+
     final today = DateTime.now();
     final todayDateOnly = DateTime(today.year, today.month, today.day);
-    final testDateOnly = testDate != null ? DateTime(testDate.year, testDate.month, testDate.day) : null;
+    final testDateOnly = testDate != null
+        ? DateTime(testDate.year, testDate.month, testDate.day)
+        : null;
 
-    final bool isToday = testDateOnly != null && testDateOnly.isAtSameMomentAs(todayDateOnly);
-    final bool isFuture = testDateOnly != null && testDateOnly.isAfter(todayDateOnly);
-    final bool isPast = testDateOnly != null && testDateOnly.isBefore(todayDateOnly);
+    final bool isToday =
+        testDateOnly != null && testDateOnly.isAtSameMomentAs(todayDateOnly);
+    final bool isFuture =
+        testDateOnly != null && testDateOnly.isAfter(todayDateOnly);
+    final bool isPast =
+        testDateOnly != null && testDateOnly.isBefore(todayDateOnly);
 
     Widget actionWidget;
     if (score != null) {
       actionWidget = Center(
         child: Column(
           children: [
-            const Text('Test Completed', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
+            const Text(
+              'Test Completed',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
             const SizedBox(height: 8),
-            Text('Your Score: $score', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(
+              'Your Score: $score',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
       );
@@ -282,7 +356,9 @@ class TestCard extends StatelessWidget {
         onPressed: onStartTest,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.green,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         ),
         child: const Row(
@@ -290,16 +366,35 @@ class TestCard extends StatelessWidget {
           children: [
             Icon(Icons.play_circle_outline, color: Colors.white),
             SizedBox(width: 8),
-            Text('Start Test', style: TextStyle(color: Colors.white, fontSize: 16)),
+            Text(
+              'Start Test',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
           ],
         ),
       );
     } else if (isFuture) {
       actionWidget = Center(
-          child: Text('Available on $formattedDate', style: const TextStyle(fontSize: 16, color: Colors.blueAccent, fontWeight: FontWeight.bold)));
+        child: Text(
+          'Available on $formattedDate',
+          style: const TextStyle(
+            fontSize: 16,
+            color: Colors.blueAccent,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
     } else if (isPast) {
       actionWidget = Center(
-          child: Text('This test was due on $formattedDate', style: const TextStyle(fontSize: 16, color: Colors.redAccent, fontWeight: FontWeight.bold)));
+        child: Text(
+          'This test was due on $formattedDate',
+          style: const TextStyle(
+            fontSize: 16,
+            color: Colors.redAccent,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
     } else {
       actionWidget = const Center(child: Text('Date not specified'));
     }
@@ -313,11 +408,20 @@ class TestCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Subject: ${test['subject'] ?? 'N/A'}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              'Subject: ${test['subject'] ?? 'N/A'}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
-            Text('Date: $formattedDate', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+            Text(
+              'Date: $formattedDate',
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+            ),
             const SizedBox(height: 8),
-            Text('Questions: $questionsCount', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+            Text(
+              'Questions: $questionsCount',
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+            ),
             const SizedBox(height: 16),
             actionWidget,
           ],

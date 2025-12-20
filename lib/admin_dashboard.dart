@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,9 +23,7 @@ class AdminDashboard extends StatelessWidget {
           ),
         ],
       ),
-      body: const Center(
-        child: Text('Welcome, Admin!'),
-      ),
+      body: const Center(child: Text('Welcome, Admin!')),
     );
   }
 }
