@@ -14,7 +14,6 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
   final _studentIdController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
-  bool _rememberMe = false;
 
   @override
   void initState() {
@@ -24,13 +23,11 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
 
   Future<void> _loadSavedCredentials() async {
     final prefs = await SharedPreferences.getInstance();
-    final rememberMe = prefs.getBool('rememberMe') ?? false;
-    if (rememberMe && prefs.getString('userRole') == 'student') {
+    if (prefs.getString('userRole') == 'student') {
       final userId = prefs.getString('userId');
       if (userId != null) {
         setState(() {
           _studentIdController.text = userId;
-          _rememberMe = rememberMe;
         });
       }
     }
@@ -47,13 +44,7 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
       if (studentQuery.docs.isNotEmpty) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('userRole', 'student');
-        if (_rememberMe) {
-          await prefs.setString('userId', _studentIdController.text.trim());
-          await prefs.setBool('rememberMe', true);
-        } else {
-          await prefs.remove('userId');
-          await prefs.setBool('rememberMe', false);
-        }
+        await prefs.setString('userId', _studentIdController.text.trim());
 
         if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/student_dashboard');
@@ -170,21 +161,7 @@ class _StudentLoginPageState extends State<StudentLoginPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Checkbox(
-                      value: _rememberMe,
-                      onChanged: (value) {
-                        setState(() {
-                          _rememberMe = value!;
-                        });
-                      },
-                    ),
-                    const Text('Remember me'),
-                  ],
-                ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 32),
                 ElevatedButton.icon(
                   onPressed: _login,
                   icon: const Icon(Icons.arrow_forward, color: Colors.white),
