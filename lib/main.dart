@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:myapp/admin_dashboard.dart';
+import 'package:myapp/admin_login_page.dart';
 import 'package:myapp/ai_doubt_screen.dart';
 import 'package:myapp/firebase_options.dart';
 import 'package:myapp/login_page.dart';
+import 'package:myapp/manage_admins_page.dart';
+import 'package:myapp/manage_students_page.dart';
+import 'package:myapp/manage_teachers_page.dart';
+import 'package:myapp/notify_students_page.dart';
+import 'package:myapp/notify_teachers_page.dart';
 import 'package:myapp/student_dashboard.dart';
 import 'package:myapp/student_login_page.dart';
 import 'package:myapp/teacher_dashboard.dart';
@@ -56,9 +62,15 @@ class MyApp extends StatelessWidget {
         '/student_login': (context) => const StudentLoginPage(),
         '/student_dashboard': (context) => const StudentDashboard(),
         '/teacher_login': (context) => const TeacherLoginPage(),
+        '/admin_login': (context) => const AdminLoginPage(),
         '/teacher_dashboard': (context) => const TeacherDashboard(),
         '/admin_dashboard': (context) => const AdminDashboard(),
         '/ai_doubt_screen': (context) => const AiDoubtScreen(),
+        '/manage_students': (context) => const ManageStudentsPage(),
+        '/manage_teachers': (context) => const ManageTeachersPage(),
+        '/manage_admins': (context) => const ManageAdminsPage(),
+        '/notify_students': (context) => const NotifyStudentsPage(),
+        '/notify_teachers': (context) => const NotifyTeachersPage(),
       },
       debugShowCheckedModeBanner: false,
     );
