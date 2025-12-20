@@ -57,14 +57,6 @@ class AdminDashboard extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.admin_panel_settings),
-              title: const Text('Manage Admins'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/manage_admins');
-              },
-            ),
-            ListTile(
               leading: const Icon(Icons.notifications),
               title: const Text('Notify Students'),
               onTap: () {
@@ -117,10 +109,10 @@ class AdminDashboard extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Column(
+              child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
                       Icon(Icons.shield, color: Colors.white, size: 28),
                       SizedBox(width: 8),
@@ -134,8 +126,8 @@ class AdminDashboard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
+                  SizedBox(height: 8),
+                  Text(
                     'This is the central control panel for SaiLearn. From here, you can manage students, teachers, content, and view application analytics.',
                     style: TextStyle(color: Colors.white, fontSize: 16),
                   ),
