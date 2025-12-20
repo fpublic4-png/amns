@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:myapp/add_student_form.dart';
+import 'package:myapp/edit_student_form.dart';
 
 class ManageStudentsPage extends StatefulWidget {
   const ManageStudentsPage({super.key});
@@ -26,6 +27,38 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
         );
       },
     );
+  }
+
+  void _showEditStudentForm(DocumentSnapshot student) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+          ),
+          child: EditStudentForm(
+            student: student,
+            onStudentUpdated: () {
+              setState(() {});
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteStudent(String studentId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('students')
+          .doc(studentId)
+          .delete();
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to delete student: $e')));
+    }
   }
 
   @override
@@ -98,38 +131,109 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
 
                     final students = snapshot.data!.docs;
 
-                    return SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: DataTable(
-                        columns: const [
-                          DataColumn(label: Text('Name')),
-                          DataColumn(label: Text('Email')),
-                          DataColumn(label: Text('Class')),
-                          DataColumn(label: Text('House')),
-                          DataColumn(label: Text('Section')),
-                          DataColumn(label: Text('Actions')),
-                        ],
-                        rows: students.map((student) {
-                          final data = student.data() as Map<String, dynamic>;
-                          return DataRow(
-                            cells: [
-                              DataCell(Text(data['fullName'] ?? '')),
-                              DataCell(Text(data['email'] ?? '')),
-                              DataCell(Text(data['class'] ?? '')),
-                              DataCell(Text(data['house'] ?? '')),
-                              DataCell(Text(data['section'] ?? '')),
-                              DataCell(
-                                IconButton(
-                                  icon: const Icon(Icons.edit),
-                                  onPressed: () {
-                                    // TODO: Implement edit functionality
-                                  },
-                                ),
-                              ),
-                            ],
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxWidth > 600) {
+                          // Use DataTable for wider screens
+                          return SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: DataTable(
+                              columns: const [
+                                DataColumn(label: Text('Name')),
+                                DataColumn(label: Text('Email')),
+                                DataColumn(label: Text('Class')),
+                                DataColumn(label: Text('House')),
+                                DataColumn(label: Text('Section')),
+                                DataColumn(label: Text('Actions')),
+                              ],
+                              rows: students.map((student) {
+                                final data =
+                                    student.data() as Map<String, dynamic>;
+                                return DataRow(
+                                  cells: [
+                                    DataCell(Text(data['fullName'] ?? '')),
+                                    DataCell(Text(data['email'] ?? '')),
+                                    DataCell(Text(data['class'] ?? '')),
+                                    DataCell(Text(data['house'] ?? '')),
+                                    DataCell(Text(data['section'] ?? '')),
+                                    DataCell(
+                                      Row(
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.edit),
+                                            onPressed: () =>
+                                                _showEditStudentForm(student),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete),
+                                            onPressed: () =>
+                                                _deleteStudent(student.id),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }).toList(),
+                            ),
                           );
-                        }).toList(),
-                      ),
+                        } else {
+                          // Use ListView of cards for narrower screens
+                          return ListView.builder(
+                            itemCount: students.length,
+                            itemBuilder: (context, index) {
+                              final student = students[index];
+                              final data =
+                                  student.data() as Map<String, dynamic>;
+
+                              return Card(
+                                margin: const EdgeInsets.symmetric(
+                                  vertical: 8.0,
+                                ),
+                                child: ListTile(
+                                  title: Text(
+                                    data['fullName'] ?? '',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text('Email: ${data['email'] ?? ''}'),
+                                      Text('Class: ${data['class'] ?? ''}'),
+                                      Text('House: ${data['house'] ?? ''}'),
+                                      Text('Section: ${data['section'] ?? ''}'),
+                                    ],
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.edit,
+                                          color: Colors.blue,
+                                        ),
+                                        onPressed: () =>
+                                            _showEditStudentForm(student),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete,
+                                          color: Colors.red,
+                                        ),
+                                        onPressed: () =>
+                                            _deleteStudent(student.id),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        }
+                      },
                     );
                   },
                 ),
