@@ -1,6 +1,7 @@
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:myapp/edit_student_form.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ManageStudentsPage extends StatefulWidget {
@@ -26,15 +27,11 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userEmail = prefs.getString('userEmail');
-      final userRole = prefs.getString('userRole');
-
-      if (!mounted) return;
-
       setState(() {
-        _userRole = userRole;
+        _userRole = prefs.getString('userRole');
       });
 
-      if (userRole == 'teacher' && userEmail != null) {
+      if (_userRole == 'teacher' && userEmail != null) {
         final teacherQuery = await FirebaseFirestore.instance
             .collection('teachers')
             .where('email', isEqualTo: userEmail)
@@ -67,7 +64,7 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
     }
   }
 
-  void _showAddStudentDialog({DocumentSnapshot? student}) {
+  void _showAddStudentDialog() {
     showDialog(
       context: context,
       builder: (context) {
@@ -75,7 +72,28 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
           userRole: _userRole,
           teacherClass: _teacherClass,
           teacherSection: _teacherSection,
-          student: student,
+        );
+      },
+    );
+  }
+
+  void _showEditStudentDialog(DocumentSnapshot student) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          child: EditStudentForm(
+            student: student,
+            onStudentUpdated: () {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Student updated successfully!'),
+                  ),
+                );
+              }
+            },
+          ),
         );
       },
     );
@@ -123,9 +141,8 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final canAddStudent =
-        _userRole == 'admin' ||
-        (_userRole == 'teacher' && _teacherClass != null);
+    final isTeacherWithoutClass = _userRole == 'teacher' && _teacherClass == null;
+    final canAddStudent = _userRole == 'admin' || !isTeacherWithoutClass;
 
     return Scaffold(
       appBar: AppBar(
@@ -135,7 +152,7 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
             Padding(
               padding: const EdgeInsets.only(right: 16.0),
               child: ElevatedButton.icon(
-                onPressed: () => _showAddStudentDialog(),
+                onPressed: _showAddStudentDialog,
                 icon: const Icon(Icons.add, color: Colors.white),
                 label: const Text(
                   'Add Student',
@@ -153,164 +170,159 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _userRole == 'teacher' && _teacherClass == null
-          ? const Center(
-              child: Text('You are not assigned as a class teacher.'),
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Student List',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
+          : isTeacherWithoutClass
+              ? const Center(
+                  child: Text('You are not assigned as a class teacher.'),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Student List',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'A list of all registered students.',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ],
                       ),
-                      SizedBox(height: 4),
-                      Text(
-                        'A list of all registered students.',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: _getStudentsStream(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (snapshot.hasError) {
-                        developer.log(
-                          'Error in students stream',
-                          name: 'myapp.manage_students',
-                          error: snapshot.error,
-                        );
-                        return const Center(
-                          child: Text('Something went wrong.'),
-                        );
-                      }
-                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                        return const Center(child: Text('No students found.'));
-                      }
+                    ),
+                    Expanded(
+                      child: StreamBuilder<QuerySnapshot>(
+                        stream: _getStudentsStream(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                                child: CircularProgressIndicator());
+                          }
+                          if (snapshot.hasError) {
+                            developer.log(
+                              'Error in students stream',
+                              name: 'myapp.manage_students',
+                              error: snapshot.error,
+                            );
+                            return const Center(
+                              child: Text('Something went wrong.'),
+                            );
+                          }
+                          if (!snapshot.hasData ||
+                              snapshot.data!.docs.isEmpty) {
+                            return const Center(
+                                child: Text('No students found.'));
+                          }
 
-                      final students = snapshot.data!.docs;
+                          final students = snapshot.data!.docs;
 
-                      return ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                        itemCount: students.length,
-                        itemBuilder: (context, index) {
-                          final student = students[index];
-                          final studentData =
-                              student.data() as Map<String, dynamic>;
-                          final className = studentData['class']?.toString();
-                          final isNumeric =
-                              int.tryParse(className ?? '') != null;
+                          return ListView.builder(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 8.0),
+                            itemCount: students.length,
+                            itemBuilder: (context, index) {
+                              final student = students[index];
+                              final studentData =
+                                  student.data() as Map<String, dynamic>;
+                              final className = studentData['class']?.toString();
 
-                          return Card(
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: 8.0,
-                              vertical: 6.0,
-                            ),
-                            elevation: 3,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          studentData['name'] ?? 'No Name',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
+                              return Card(
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 8.0,
+                                  vertical: 6.0,
+                                ),
+                                elevation: 3,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12.0),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              studentData['name'] ??
+                                                  'No Name',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Email: ${studentData['email'] ?? 'N/A'}',
+                                            ),
+                                            Text(
+                                              'Phone: ${studentData['phone'] ?? 'N/A'}',
+                                            ),
+                                            Text(
+                                                'Class: ${className ?? 'N/A'}'),
+                                            Text(
+                                              'Section: ${studentData['section'] ?? 'N/A'}',
+                                            ),
+                                            Text(
+                                              'House: ${studentData['house'] ?? 'N/A'}',
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Email: ${studentData['email'] ?? 'N/A'}',
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.edit,
+                                          color: Colors.blueAccent,
                                         ),
-                                        Text(
-                                          'Phone: ${studentData['phone'] ?? 'N/A'}',
+                                        onPressed: () =>
+                                            _showEditStudentDialog(student),
+                                        tooltip: 'Edit Student',
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete,
+                                          color: Colors.redAccent,
                                         ),
-                                        Text(
-                                          'Class: ${isNumeric ? 'Class $className' : className ?? 'N/A'}',
-                                        ),
-                                        Text(
-                                          'Section: ${studentData['section'] ?? 'N/A'}',
-                                        ),
-                                        Text(
-                                          'House: ${studentData['house'] ?? 'N/A'}',
-                                        ),
-                                      ],
-                                    ),
+                                        onPressed: () =>
+                                            _deleteStudent(student.id),
+                                        tooltip: 'Delete Student',
+                                      ),
+                                    ],
                                   ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.edit,
-                                      color: Colors.blueAccent,
-                                    ),
-                                    onPressed: () =>
-                                        _showAddStudentDialog(student: student),
-                                    tooltip: 'Edit Student',
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete,
-                                      color: Colors.redAccent,
-                                    ),
-                                    onPressed: () => _deleteStudent(student.id),
-                                    tooltip: 'Delete Student',
-                                  ),
-                                ],
-                              ),
-                            ),
+                                ),
+                              );
+                            },
                           );
                         },
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
     );
   }
 
   Stream<QuerySnapshot> _getStudentsStream() {
     if (_userRole == 'teacher') {
-      String? querySection = _teacherSection;
-      if (querySection != null && querySection.startsWith('Section ')) {
-        querySection = querySection.split(' ').last;
+      if (_teacherClass == null) {
+        // Return an empty stream if the teacher is not a class teacher
+        return const Stream.empty();
       }
-
-      developer.log(
-        'Querying students for teacher. Class: $_teacherClass, Section: $querySection',
-        name: 'myapp.manage_students',
-      );
-
       return FirebaseFirestore.instance
           .collection('students')
           .where('class', isEqualTo: _teacherClass)
-          .where('section', isEqualTo: querySection)
+          .where('section', isEqualTo: _teacherSection)
           .snapshots();
     } else {
-      developer.log(
-        'Querying all students for admin.',
-        name: 'myapp.manage_students',
-      );
+      // Admin sees all students
       return FirebaseFirestore.instance.collection('students').snapshots();
     }
   }
@@ -320,14 +332,12 @@ class AddStudentDialog extends StatefulWidget {
   final String? userRole;
   final String? teacherClass;
   final String? teacherSection;
-  final DocumentSnapshot? student;
 
   const AddStudentDialog({
+    super.key,
     this.userRole,
     this.teacherClass,
     this.teacherSection,
-    this.student,
-    super.key,
   });
 
   @override
@@ -373,27 +383,9 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
   @override
   void initState() {
     super.initState();
-    if (widget.student != null) {
-      final studentData = widget.student!.data() as Map<String, dynamic>;
-      _studentIdController.text = studentData['studentId'] ?? '';
-      _nameController.text = studentData['name'] ?? '';
-      _emailController.text = studentData['email'] ?? '';
-      _passwordController.text = studentData['password'] ?? '';
-      _phoneController.text = studentData['phone'] ?? '';
-      _addressController.text = studentData['address'] ?? '';
-      _fatherNameController.text = studentData['fatherName'] ?? '';
-      _fatherPhoneController.text = studentData['fatherPhone'] ?? '';
-      _motherNameController.text = studentData['motherName'] ?? '';
-      _selectedClass = studentData['class']?.toString();
-      _selectedSection = studentData['section'];
-      _selectedHouse = studentData['house'];
-    } else if (widget.userRole == 'teacher') {
+    if (widget.userRole == 'teacher') {
       _selectedClass = widget.teacherClass;
       _selectedSection = widget.teacherSection;
-      if (_selectedSection != null &&
-          _selectedSection!.startsWith('Section ')) {
-        _selectedSection = _selectedSection!.split(' ').last;
-      }
     }
   }
 
@@ -411,7 +403,7 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
     super.dispose();
   }
 
-  Future<void> _addOrUpdateStudent() async {
+  Future<void> _addStudent() async {
     if (!_formKey.currentState!.validate()) return;
 
     final studentData = {
@@ -430,24 +422,13 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
     };
 
     try {
-      if (widget.student != null) {
-        await FirebaseFirestore.instance
-            .collection('students')
-            .doc(widget.student!.id)
-            .update(studentData);
-      } else {
-        await FirebaseFirestore.instance
-            .collection('students')
-            .add(studentData);
-      }
+      await FirebaseFirestore.instance.collection('students').add(studentData);
 
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Student ${widget.student != null ? 'updated' : 'added'} successfully!',
-            ),
+          const SnackBar(
+            content: Text('Student added successfully!'),
           ),
         );
       }
@@ -469,11 +450,9 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
   @override
   Widget build(BuildContext context) {
     final isTeacher = widget.userRole == 'teacher';
-    final isNumericClass =
-        _selectedClass != null && int.tryParse(_selectedClass!) != null;
 
     return AlertDialog(
-      title: Text(widget.student != null ? 'Edit Student' : 'Add Student'),
+      title: const Text('Add Student'),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -500,23 +479,22 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
                     : null,
               ),
               TextFormField(
-                controller: _passwordController,
-                obscureText: !_passwordVisible,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _passwordVisible
-                          ? Icons.visibility
-                          : Icons.visibility_off,
+                  controller: _passwordController,
+                  obscureText: !_passwordVisible,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _passwordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                      ),
+                      onPressed: () =>
+                          setState(() => _passwordVisible = !_passwordVisible),
                     ),
-                    onPressed: () =>
-                        setState(() => _passwordVisible = !_passwordVisible),
                   ),
-                ),
-                validator: (value) =>
-                    value!.isEmpty ? 'Please enter a password' : null,
-              ),
+                  validator: (value) =>
+                      value!.isEmpty ? 'Please enter a password' : null),
               TextFormField(
                 controller: _phoneController,
                 decoration: const InputDecoration(labelText: 'Phone'),
@@ -545,10 +523,9 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
                         value: _selectedClass,
                         hint: const Text('Select Class'),
                         items: _classes.map((String value) {
-                          final isNumeric = int.tryParse(value) != null;
                           return DropdownMenuItem<String>(
                             value: value,
-                            child: Text(isNumeric ? 'Class $value' : value),
+                            child: Text(value),
                           );
                         }).toList(),
                         onChanged: (newValue) =>
@@ -565,7 +542,7 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
                         items: _sections.map((String value) {
                           return DropdownMenuItem<String>(
                             value: value,
-                            child: Text('Section $value'),
+                            child: Text(value),
                           );
                         }).toList(),
                         onChanged: (newValue) =>
@@ -580,7 +557,7 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
                   child: Text(
-                    'Class: ${isNumericClass ? 'Class $_selectedClass' : _selectedClass} - Section $_selectedSection',
+                    'Class: $_selectedClass - Section $_selectedSection',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -608,8 +585,8 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: _addOrUpdateStudent,
-          child: Text(widget.student != null ? 'Update' : 'Add'),
+          onPressed: _addStudent,
+          child: const Text('Add'),
         ),
       ],
     );

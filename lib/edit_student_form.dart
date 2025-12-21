@@ -22,7 +22,7 @@ class _EditStudentFormState extends State<EditStudentForm> {
   late TextEditingController _emailController;
   late TextEditingController _passwordController;
   late TextEditingController _phoneController;
-  late TextEditingController _classController;
+  String? _selectedClass;
   String? _selectedHouse;
   String? _selectedSection;
   late TextEditingController _addressController;
@@ -31,8 +31,25 @@ class _EditStudentFormState extends State<EditStudentForm> {
   late TextEditingController _motherNameController;
   bool _passwordVisible = false;
 
+  final List<String> _classes = [
+    'Nursery',
+    'LKG',
+    'UKG',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '10',
+    '11',
+    '12',
+  ];
   final List<String> _houses = ['Earth', 'Uranus', 'Saturn', 'Mars'];
-  final List<String> _sections = ['Sec A', 'Sec B', 'Sec C', 'Sec D', 'Sec E'];
+  final List<String> _sections = ['A', 'B', 'C', 'D', 'E'];
 
   @override
   void initState() {
@@ -44,9 +61,23 @@ class _EditStudentFormState extends State<EditStudentForm> {
     _emailController = TextEditingController(text: data['email']);
     _passwordController = TextEditingController(text: data['password']);
     _phoneController = TextEditingController(text: data['phone']);
-    _classController = TextEditingController(text: data['class']);
+
+    _selectedClass = data['class'];
+    if (_selectedClass != null && _selectedClass!.startsWith('Class ')) {
+      _selectedClass = _selectedClass!.split(' ').last;
+    }
+
     _selectedHouse = data['house'];
+
     _selectedSection = data['section'];
+    if (_selectedSection != null) {
+      if (_selectedSection!.startsWith('Section ')) {
+        _selectedSection = _selectedSection!.split(' ').last;
+      } else if (_selectedSection!.startsWith('Sec ')) {
+        _selectedSection = _selectedSection!.split(' ').last;
+      }
+    }
+
     _addressController = TextEditingController(text: data['address']);
     _fatherNameController = TextEditingController(text: data['fatherName']);
     _fatherPhoneController = TextEditingController(text: data['fatherPhone']);
@@ -60,19 +91,19 @@ class _EditStudentFormState extends State<EditStudentForm> {
             .collection('students')
             .doc(widget.student.id)
             .update({
-              'studentId': _studentIdController.text,
-              'fullName': _fullNameController.text,
-              'email': _emailController.text,
-              'password': _passwordController.text,
-              'phone': _phoneController.text,
-              'class': _classController.text,
-              'house': _selectedHouse,
-              'section': _selectedSection,
-              'address': _addressController.text,
-              'fatherName': _fatherNameController.text,
-              'fatherPhone': _fatherPhoneController.text,
-              'motherName': _motherNameController.text,
-            });
+          'studentId': _studentIdController.text,
+          'fullName': _fullNameController.text,
+          'email': _emailController.text,
+          'password': _passwordController.text,
+          'phone': _phoneController.text,
+          'class': _selectedClass,
+          'house': _selectedHouse,
+          'section': _selectedSection,
+          'address': _addressController.text,
+          'fatherName': _fatherNameController.text,
+          'fatherPhone': _fatherPhoneController.text,
+          'motherName': _motherNameController.text,
+        });
 
         widget.onStudentUpdated();
 
@@ -201,12 +232,24 @@ class _EditStudentFormState extends State<EditStudentForm> {
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: TextFormField(
-                      controller: _classController,
+                    child: DropdownButtonFormField<String>(
                       decoration: const InputDecoration(
                         labelText: 'Class',
                         border: OutlineInputBorder(),
                       ),
+                      value: _selectedClass,
+                      items: _classes.map((String className) {
+                        final isNumeric = int.tryParse(className) != null;
+                        return DropdownMenuItem<String>(
+                          value: className,
+                          child: Text(isNumeric ? 'Class $className' : className),
+                        );
+                      }).toList(),
+                      onChanged: (newValue) {
+                        setState(() {
+                          _selectedClass = newValue;
+                        });
+                      },
                     ),
                   ),
                 ],
@@ -220,7 +263,7 @@ class _EditStudentFormState extends State<EditStudentForm> {
                         labelText: 'House',
                         border: OutlineInputBorder(),
                       ),
-                      initialValue: _selectedHouse,
+                      value: _selectedHouse,
                       items: _houses.map((String house) {
                         return DropdownMenuItem<String>(
                           value: house,
@@ -241,7 +284,7 @@ class _EditStudentFormState extends State<EditStudentForm> {
                         labelText: 'Section',
                         border: OutlineInputBorder(),
                       ),
-                      initialValue: _selectedSection,
+                      value: _selectedSection,
                       items: _sections.map((String section) {
                         return DropdownMenuItem<String>(
                           value: section,

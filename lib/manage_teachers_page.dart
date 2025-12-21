@@ -1,202 +1,134 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class ManageTeachersPage extends StatefulWidget {
+class ManageTeachersPage extends StatelessWidget {
   const ManageTeachersPage({super.key});
 
-  @override
-  State<ManageTeachersPage> createState() => _ManageTeachersPageState();
-}
+  void _showAddTeacherDialog(
+      {required BuildContext context, DocumentSnapshot? teacher}) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AddTeacherDialog(teacher: teacher);
+      },
+    );
+  }
 
-class _ManageTeachersPageState extends State<ManageTeachersPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4F8),
       appBar: AppBar(
-        title: const Text(
-          'Manage Teachers',
-          style: TextStyle(color: Colors.green),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.green),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: ElevatedButton.icon(
-              onPressed: () => _showAddTeacherDialog(),
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text(
-                'Add Teacher',
-                style: TextStyle(color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20.0),
-                ),
-              ),
-            ),
-          ),
-        ],
+        title: const Text('Manage Teachers'),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('teachers').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('No teachers found.'));
-          }
+      body: Column(
+        children: [
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('teachers').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Center(child: Text('Something went wrong'));
+                }
 
-          final teachers = snapshot.data!.docs;
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Container(
-              padding: const EdgeInsets.all(16.0),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12.0),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Teacher List',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                  ),
-                  const Text(
-                    'A list of all registered teachers.',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: teachers.length,
-                      itemBuilder: (context, index) {
-                        final teacher = teachers[index];
-                        final data = teacher.data() as Map<String, dynamic>;
+                final teachers = snapshot.data!.docs;
 
-                        String classesDisplay = 'N/A';
-                        if (data.containsKey('classesTaught')) {
-                          final classesData = data['classesTaught'];
-                          if (classesData is Map) {
-                            final classes = classesData.cast<String, dynamic>();
-                            classesDisplay = classes.entries
-                                .map(
-                                  (e) =>
-                                      '${e.key}: ${((e.value as Map<String, dynamic>).entries.where((element) => element.value).map((e) => e.key).toList()).join(', ')}',
-                                )
-                                .join('\n');
-                          } else if (classesData is List) {
-                            classesDisplay = classesData.join(', ');
-                          }
-                        }
+                return ListView.builder(
+                  itemCount: teachers.length,
+                  itemBuilder: (context, index) {
+                    final teacher = teachers[index];
+                    final data = teacher.data() as Map<String, dynamic>;
 
-                        String subjectsDisplay = 'N/A';
-                        if (data.containsKey('subjects')) {
-                          final subjectsData = data['subjects'];
-                          if (subjectsData is List) {
-                            subjectsDisplay = subjectsData.join(', ');
-                          } else if (subjectsData is String) {
-                            subjectsDisplay = subjectsData;
-                          }
-                        }
+                    final name = data['name'] ?? 'N/A';
+                    final email = data['email'] ?? 'N/A';
+                    final phone = data['phone'] ?? 'N/A';
+                    final isClassTeacher = data['isClassTeacher'] ?? false;
 
-                        final className = data['classTeacherClass'];
-                        final isNumeric =
-                            className != null &&
-                            int.tryParse(className) != null;
+                    String subjectsDisplay = 'N/A';
+                    if (data.containsKey('subjects')) {
+                      final subjectsData = data['subjects'];
+                      if (subjectsData is List) {
+                        subjectsDisplay = subjectsData.join(', ');
+                      } else if (subjectsData is String) {
+                        subjectsDisplay = subjectsData;
+                      }
+                    }
 
-                        return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: ListTile(
-                            title: Text(data['fullName'] ?? 'N/A'),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(data['email'] ?? 'N/A'),
-                                Text('Classes: $classesDisplay'),
-                                Text('Subjects: $subjectsDisplay'),
-                                Text(
-                                  'Class Teacher: ${data['isClassTeacher'] == true ? 'Yes' : 'No'}',
-                                ),
-                                if (data['isClassTeacher'] == true)
-                                  Text(
-                                    'Class: ${isNumeric ? 'Class $className' : className}, Section: ${data['classTeacherSection']}',
-                                  ),
-                              ],
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit,
-                                    color: Colors.green,
-                                  ),
-                                  onPressed: () =>
-                                      _showAddTeacherDialog(teacher: teacher),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete,
-                                    color: Colors.red,
-                                  ),
-                                  onPressed: () =>
-                                      _showDeleteConfirmationDialog(teacher.id),
-                                ),
-                              ],
-                            ),
+                    final className = data['classTeacherClass'];
+                    final isNumeric =
+                        className != null && int.tryParse(className) != null;
+
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 16.0, vertical: 8.0),
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(16.0),
+                        title: Text(
+                          name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 8),
+                            Text('Email: $email'),
+                            Text('Phone: $phone'),
+                            Text('Subjects: $subjectsDisplay'),
+                            if (isClassTeacher)
+                              Text(
+                                'Class Teacher of: ${isNumeric ? 'Class $className' : className}, Section: ${data['classTeacherSection']?.toString().replaceAll('Section ', '') ?? ''}',
+                              ),
+                          ],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                Icons.edit,
+                                color: Colors.green,
+                              ),
+                              onPressed: () => _showAddTeacherDialog(
+                                  context: context, teacher: teacher),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete,
+                                color: Colors.red,
+                              ),
+                              onPressed: () async {
+                                await FirebaseFirestore.instance
+                                    .collection('teachers')
+                                    .doc(teacher.id)
+                                    .delete();
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
-          );
-        },
-      ),
-    );
-  }
-
-  void _showAddTeacherDialog({DocumentSnapshot? teacher}) {
-    showDialog(
-      context: context,
-      builder: (context) => AddTeacherDialog(teacher: teacher),
-    );
-  }
-
-  void _showDeleteConfirmationDialog(String teacherId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Teacher'),
-        content: const Text('Are you sure you want to delete this teacher?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              FirebaseFirestore.instance
-                  .collection('teachers')
-                  .doc(teacherId)
-                  .delete();
-              Navigator.of(context).pop();
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddTeacherDialog(context: context),
+        icon: const Icon(Icons.add),
+        label: const Text('Add Teacher'),
+        backgroundColor: Colors.green,
       ),
     );
   }
@@ -205,7 +137,7 @@ class _ManageTeachersPageState extends State<ManageTeachersPage> {
 class AddTeacherDialog extends StatefulWidget {
   final DocumentSnapshot? teacher;
 
-  const AddTeacherDialog({this.teacher, super.key});
+  const AddTeacherDialog({super.key, this.teacher});
 
   @override
   State<AddTeacherDialog> createState() => _AddTeacherDialogState();
@@ -213,20 +145,14 @@ class AddTeacherDialog extends StatefulWidget {
 
 class _AddTeacherDialogState extends State<AddTeacherDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _teacherIdController = TextEditingController();
-  final _fullNameController = TextEditingController();
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _qualificationController = TextEditingController();
   final _subjectsController = TextEditingController();
-  String? _selectedHouse;
-  bool _isClassTeacher = false;
-  String? _classTeacherClass;
-  String? _classTeacherSection;
-  Map<String, Map<String, bool>> _classesTaught = {};
-  bool _passwordVisible = false;
 
-  final List<String> _houses = ['Earth', 'Uranus', 'Saturn', 'Mars'];
+  Map<String, List<String>> _classesTaught = {};
   final List<String> _classes = [
     'Nursery',
     'LKG',
@@ -242,104 +168,53 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
     '9',
     '10',
     '11',
-    '12',
+    '12'
   ];
   final List<String> _sections = ['A', 'B', 'C', 'D', 'E'];
+
+  String? _selectedHouse;
+  final List<String> _houses = ['Earth', 'Uranus', 'Saturn', 'Mars'];
+
+  bool _isClassTeacher = false;
+  String? _classTeacherClass;
+  String? _classTeacherSection;
 
   @override
   void initState() {
     super.initState();
     if (widget.teacher != null) {
       final data = widget.teacher!.data() as Map<String, dynamic>;
-      _teacherIdController.text = data['teacherId'] ?? '';
-      _fullNameController.text = data['fullName'] ?? '';
+      _nameController.text = data['name'] ?? '';
       _emailController.text = data['email'] ?? '';
+      _passwordController.text = data['password'] ?? '';
       _phoneController.text = data['phone'] ?? '';
+      _qualificationController.text = data['qualification'] ?? '';
 
-      if (data.containsKey('subjects')) {
-        final subjectsData = data['subjects'];
-        if (subjectsData is List) {
-          _subjectsController.text = subjectsData.join(', ');
-        } else if (subjectsData is String) {
-          _subjectsController.text = subjectsData;
-        }
+      if (data['subjects'] is List) {
+        _subjectsController.text = (data['subjects'] as List).join(', ');
       }
+
+      final rawClassesTaught = data['classes_taught'] as Map? ?? {};
+      _classesTaught = rawClassesTaught.map((key, value) {
+        final sectionList = (value as List? ?? [])
+            .map((section) => section
+                .toString()
+                .replaceAll('Section ', '')
+                .replaceAll('Sec ', ''))
+            .toList()
+            .cast<String>();
+        return MapEntry(key.toString(), sectionList);
+      });
 
       _selectedHouse = data['house'];
       _isClassTeacher = data['isClassTeacher'] ?? false;
       _classTeacherClass = data['classTeacherClass'];
+
       _classTeacherSection = data['classTeacherSection'];
-      if (_classTeacherSection != null &&
-          _classTeacherSection!.startsWith('Section ')) {
-        _classTeacherSection = _classTeacherSection!.split(' ').last;
-      }
-
-      if (data['classesTaught'] is Map) {
-        _classesTaught =
-            (data['classesTaught'] as Map<String, dynamic>?)?.map(
-              (key, value) => MapEntry(
-                key,
-                (value as Map<String, dynamic>).cast<String, bool>(),
-              ),
-            ) ??
-            {};
-      }
-    }
-    for (var className in _classes) {
-      if (!_classesTaught.containsKey(className)) {
-        _classesTaught[className] = {
-          'A': false,
-          'B': false,
-          'C': false,
-          'D': false,
-          'E': false,
-        };
-      } else {
-        for (var sectionName in _sections) {
-          if (!_classesTaught[className]!.containsKey(sectionName)) {
-            _classesTaught[className]![sectionName] = false;
-          }
-        }
-      }
-    }
-  }
-
-  Future<void> _addOrUpdateTeacher() async {
-    if (_formKey.currentState!.validate()) {
-      try {
-        final teacherData = {
-          'teacherId': _teacherIdController.text,
-          'fullName': _fullNameController.text,
-          'email': _emailController.text,
-          'password': _passwordController.text,
-          'phone': _phoneController.text,
-          'house': _selectedHouse,
-          'subjects': _subjectsController.text
-              .split(',')
-              .map((s) => s.trim())
-              .toList(),
-          'isClassTeacher': _isClassTeacher,
-          'classTeacherClass': _classTeacherClass,
-          'classTeacherSection': _classTeacherSection,
-          'classesTaught': _classesTaught,
-        };
-
-        if (widget.teacher != null) {
-          await FirebaseFirestore.instance
-              .collection('teachers')
-              .doc(widget.teacher!.id)
-              .update(teacherData);
-        } else {
-          await FirebaseFirestore.instance
-              .collection('teachers')
-              .add(teacherData);
-        }
-
-        Navigator.of(context).pop();
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add/update teacher: $e')),
-        );
+      if (_classTeacherSection != null) {
+        _classTeacherSection = _classTeacherSection!
+            .replaceAll('Section ', '')
+            .replaceAll('Sec ', '');
       }
     }
   }
@@ -347,110 +222,116 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.teacher != null ? 'Edit Teacher' : 'Add New Teacher'),
-      content: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
+      title: Text(widget.teacher == null ? 'Add Teacher' : 'Edit Teacher'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextFormField(
-                controller: _teacherIdController,
-                decoration: const InputDecoration(labelText: 'Teacher ID'),
-                validator: (value) => value == null || value.isEmpty
-                    ? 'Please enter an ID'
-                    : null,
-              ),
-              TextFormField(
-                controller: _fullNameController,
-                decoration: const InputDecoration(labelText: 'Full Name'),
-                validator: (value) => value == null || value.isEmpty
-                    ? 'Please enter a name'
-                    : null,
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Name'),
+                validator: (value) => value!.isEmpty ? 'Enter a name' : null,
               ),
               TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(labelText: 'Email'),
                 validator: (value) =>
-                    value == null || value.isEmpty || !value.contains('@')
-                    ? 'Please enter a valid email'
-                    : null,
+                    value!.isEmpty || !value.contains('@')
+                        ? 'Enter a valid email'
+                        : null,
               ),
               TextFormField(
                 controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _passwordVisible
-                          ? Icons.visibility
-                          : Icons.visibility_off,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _passwordVisible = !_passwordVisible;
-                      });
-                    },
-                  ),
-                ),
-                obscureText: !_passwordVisible,
-                validator: (value) => value == null || value.isEmpty
-                    ? 'Please enter a password'
-                    : null,
+                decoration: const InputDecoration(labelText: 'Password'),
+                obscureText: true,
+                validator: (value) => value!.isEmpty ? 'Enter a password' : null,
               ),
               TextFormField(
                 controller: _phoneController,
                 decoration: const InputDecoration(labelText: 'Phone'),
               ),
-              DropdownButtonFormField<String>(
-                value: _selectedHouse,
-                hint: const Text('Select House'),
-                items: _houses
-                    .map(
-                      (house) =>
-                          DropdownMenuItem(value: house, child: Text(house)),
-                    )
-                    .toList(),
-                onChanged: (value) => setState(() => _selectedHouse = value),
+              TextFormField(
+                controller: _qualificationController,
+                decoration: const InputDecoration(labelText: 'Qualification'),
               ),
               TextFormField(
                 controller: _subjectsController,
                 decoration: const InputDecoration(
-                  labelText: 'Subjects (comma-separated)',
+                  labelText: 'Subjects Taught',
+                  hintText: 'Enter subjects, separated by commas',
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Classes Taught',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
+              const Text('Classes and Sections Taught',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               ..._classes.map((className) {
-                final isNumeric = int.tryParse(className) != null;
-                return ExpansionTile(
-                  title: Text(isNumeric ? 'Class $className' : className),
-                  children: _sections.map((sectionName) {
-                    return CheckboxListTile(
-                      title: Text('Section $sectionName'),
-                      value:
-                          _classesTaught.containsKey(className) &&
-                          _classesTaught[className]!.containsKey(sectionName) &&
-                          _classesTaught[className]![sectionName]!,
-                      onChanged: (value) {
-                        setState(() {
-                          if (!_classesTaught.containsKey(className)) {
-                            _classesTaught[className] = {};
-                          }
-                          _classesTaught[className]![sectionName] = value!;
-                        });
-                      },
-                    );
-                  }).toList(),
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(className,
+                        style: const TextStyle(fontWeight: FontWeight.w500)),
+                    Wrap(
+                      children: _sections.map((section) {
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Checkbox(
+                              value: (_classesTaught[className] ?? [])
+                                  .contains(section),
+                              onChanged: (value) {
+                                setState(() {
+                                  if (value!) {
+                                    _classesTaught
+                                        .putIfAbsent(className, () => [])
+                                        .add(section);
+                                  } else {
+                                    _classesTaught[className]?.remove(section);
+                                    if (_classesTaught[className]?.isEmpty ??
+                                        false) {
+                                      _classesTaught.remove(className);
+                                    }
+                                  }
+                                });
+                              },
+                            ),
+                            Text(section),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 );
-              }),
-              CheckboxListTile(
-                title: const Text('Is Class Teacher?'),
-                value: _isClassTeacher,
-                onChanged: (value) => setState(() => _isClassTeacher = value!),
+              }).toList(),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: _selectedHouse,
+                decoration: const InputDecoration(labelText: 'House'),
+                items: _houses.map((String house) {
+                  return DropdownMenuItem<String>(
+                    value: house,
+                    child: Text(house),
+                  );
+                }).toList(),
+                onChanged: (newValue) {
+                  setState(() {
+                    _selectedHouse = newValue;
+                  });
+                },
+              ),
+              Row(
+                children: [
+                  Checkbox(
+                    value: _isClassTeacher,
+                    onChanged: (value) {
+                      setState(() {
+                        _isClassTeacher = value!;
+                      });
+                    },
+                  ),
+                  const Text('Is Class Teacher?'),
+                ],
               ),
               if (_isClassTeacher)
                 Row(
@@ -458,35 +339,36 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         value: _classTeacherClass,
-                        hint: const Text('Select Class'),
-                        items: _classes.map((className) {
-                          final isNumeric = int.tryParse(className) != null;
-                          return DropdownMenuItem(
-                            value: className,
-                            child: Text(
-                              isNumeric ? 'Class $className' : className,
-                            ),
+                        decoration: const InputDecoration(labelText: 'Class'),
+                        items: _classes.map((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
                           );
                         }).toList(),
-                        onChanged: (value) =>
-                            setState(() => _classTeacherClass = value),
+                        onChanged: (newValue) {
+                          setState(() {
+                            _classTeacherClass = newValue;
+                          });
+                        },
                       ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         value: _classTeacherSection,
-                        hint: const Text('Select Section'),
-                        items: _sections
-                            .map(
-                              (sectionName) => DropdownMenuItem(
-                                value: sectionName,
-                                child: Text('Section $sectionName'),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) =>
-                            setState(() => _classTeacherSection = value),
+                        decoration: const InputDecoration(labelText: 'Section'),
+                        items: _sections.map((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                        onChanged: (newValue) {
+                          setState(() {
+                            _classTeacherSection = newValue;
+                          });
+                        },
                       ),
                     ),
                   ],
@@ -497,12 +379,50 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel')),
         ElevatedButton(
-          onPressed: _addOrUpdateTeacher,
-          child: Text(widget.teacher != null ? 'Update' : 'Add Teacher'),
+          onPressed: () async {
+            if (_formKey.currentState!.validate()) {
+              final subjectsList = _subjectsController.text
+                  .split(',')
+                  .map((s) => s.trim())
+                  .where((s) => s.isNotEmpty)
+                  .toList();
+
+              final teacherData = {
+                'name': _nameController.text,
+                'email': _emailController.text,
+                'password': _passwordController.text,
+                'phone': _phoneController.text,
+                'qualification': _qualificationController.text,
+                'subjects': subjectsList,
+                'classes_taught': _classesTaught,
+                'house': _selectedHouse,
+                'isClassTeacher': _isClassTeacher,
+                'classTeacherClass':
+                    _isClassTeacher ? _classTeacherClass : null,
+                'classTeacherSection':
+                    _isClassTeacher ? _classTeacherSection : null,
+              };
+
+              if (widget.teacher == null) {
+                await FirebaseFirestore.instance
+                    .collection('teachers')
+                    .add(teacherData);
+              } else {
+                await FirebaseFirestore.instance
+                    .collection('teachers')
+                    .doc(widget.teacher!.id)
+                    .update(teacherData);
+              }
+
+              if (mounted) {
+                Navigator.of(context).pop();
+              }
+            }
+          },
+          child: Text(widget.teacher == null ? 'Add' : 'Update'),
         ),
       ],
     );
