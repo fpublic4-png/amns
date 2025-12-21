@@ -19,7 +19,7 @@ class _ManageSubjectsPageState extends State<ManageSubjectsPage> {
   final List<TextEditingController> _selectiveGroupControllers = [];
 
   List<String> _savedCompulsorySubjects = [];
-  List<List<String>> _savedSelectiveGroups = [];
+  Map<String, List<String>> _savedSelectiveGroups = {};
 
   @override
   void initState() {
@@ -42,65 +42,89 @@ class _ManageSubjectsPageState extends State<ManageSubjectsPage> {
       _isLoading = true;
     });
 
-    final prefs = await SharedPreferences.getInstance();
-    final userEmail = prefs.getString('userEmail');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userEmail = prefs.getString('userEmail');
 
-    if (userEmail == null) {
-      if (mounted) setState(() => _isLoading = false);
-      return;
-    }
+      if (userEmail == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
 
-    final teacherQuery = await FirebaseFirestore.instance
-        .collection('teachers')
-        .where('email', isEqualTo: userEmail)
-        .limit(1)
-        .get();
-
-    if (teacherQuery.docs.isEmpty) {
-      if (mounted) setState(() => _isLoading = false);
-      return;
-    }
-
-    final teacherData = teacherQuery.docs.first.data();
-    if (teacherData['isClassTeacher'] == true &&
-        teacherData['classTeacherClass'] != null &&
-        teacherData['classTeacherSection'] != null) {
-      _classAndSection =
-          '${teacherData['classTeacherClass']}-${teacherData['classTeacherSection']}';
-
-      final subjectConfigDoc = await FirebaseFirestore.instance
-          .collection('subject_configurations')
-          .doc(_classAndSection)
+      final teacherQuery = await FirebaseFirestore.instance
+          .collection('teachers')
+          .where('email', isEqualTo: userEmail)
+          .limit(1)
           .get();
 
-      if (subjectConfigDoc.exists) {
-        final data = subjectConfigDoc.data()!;
-        _savedCompulsorySubjects = List<String>.from(
-          data['compulsorySubjects'] ?? [],
-        );
-        _savedSelectiveGroups = (data['selectiveSubjectGroups'] as List? ?? [])
-            .map((group) => List<String>.from(group ?? []))
-            .toList();
-
-        _compulsorySubjectsController.text = _savedCompulsorySubjects.join(
-          ', ',
-        );
-        _selectiveGroupControllers.clear();
-        _selectiveGroupControllers.addAll(
-          _savedSelectiveGroups.map(
-            (group) => TextEditingController(text: group.join(', ')),
-          ),
-        );
-        _isEditMode = false;
-      } else {
-        _isEditMode = true;
-        _selectiveGroupControllers.add(TextEditingController());
+      if (teacherQuery.docs.isEmpty) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
       }
-    } else {
-      _classAndSection = null; // Ensure it's null if not a class teacher
-    }
 
-    if (mounted) setState(() => _isLoading = false);
+      final teacherData = teacherQuery.docs.first.data();
+      if (teacherData['isClassTeacher'] == true &&
+          teacherData['classTeacherClass'] != null &&
+          teacherData['classTeacherSection'] != null) {
+        _classAndSection =
+            '${teacherData['classTeacherClass']}-${teacherData['classTeacherSection']}';
+
+        final subjectConfigDoc = await FirebaseFirestore.instance
+            .collection('subject_configurations')
+            .doc(_classAndSection)
+            .get();
+
+        if (subjectConfigDoc.exists) {
+          final data = subjectConfigDoc.data()!;
+          _savedCompulsorySubjects = List<String>.from(
+            data['compulsorySubjects'] ?? [],
+          );
+
+          // Handle both old (List) and new (Map) formats
+          if (data['selectiveSubjectGroups'] is List) {
+            final List<List<String>> oldGroups =
+                (data['selectiveSubjectGroups'] as List)
+                    .map((group) => List<String>.from(group ?? []))
+                    .toList();
+            _savedSelectiveGroups = {
+              for (var i = 0; i < oldGroups.length; i++)
+                'group${i + 1}': oldGroups[i],
+            };
+          } else if (data['selectiveSubjectGroups'] is Map) {
+            _savedSelectiveGroups = Map<String, List<String>>.from(
+              (data['selectiveSubjectGroups'] as Map).map(
+                (key, value) => MapEntry(key, List<String>.from(value)),
+              ),
+            );
+          }
+
+          _compulsorySubjectsController.text = _savedCompulsorySubjects.join(
+            ', ',
+          );
+          _selectiveGroupControllers.clear();
+          _selectiveGroupControllers.addAll(
+            _savedSelectiveGroups.values.map(
+              (group) => TextEditingController(text: group.join(', ')),
+            ),
+          );
+          _isEditMode = false;
+        } else {
+          _isEditMode = true;
+          _selectiveGroupControllers.add(TextEditingController());
+        }
+      } else {
+        _classAndSection = null; // Ensure it's null if not a class teacher
+      }
+    } catch (e) {
+      // Log the error or show a message if necessary
+      print('Error loading subjects: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _saveSubjects() async {
@@ -116,16 +140,17 @@ class _ManageSubjectsPageState extends State<ManageSubjectsPage> {
         .where((s) => s.isNotEmpty)
         .toList();
 
-    final selectiveSubjectGroups = _selectiveGroupControllers
-        .map(
-          (controller) => controller.text
-              .split(',')
-              .map((s) => s.trim())
-              .where((s) => s.isNotEmpty)
-              .toList(),
-        )
-        .where((group) => group.isNotEmpty)
-        .toList();
+    final selectiveSubjectGroups = <String, List<String>>{};
+    for (var i = 0; i < _selectiveGroupControllers.length; i++) {
+      final groupSubjects = _selectiveGroupControllers[i].text
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+      if (groupSubjects.isNotEmpty) {
+        selectiveSubjectGroups['group${i + 1}'] = groupSubjects;
+      }
+    }
 
     try {
       await FirebaseFirestore.instance
@@ -411,20 +436,20 @@ class _ManageSubjectsPageState extends State<ManageSubjectsPage> {
                 if (_savedSelectiveGroups.isEmpty)
                   const Text('None')
                 else
-                  ...List.generate(_savedSelectiveGroups.length, (index) {
+                  ..._savedSelectiveGroups.entries.map((entry) {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Group ${index + 1}: Choose one of',
+                            'Group ${entry.key.substring(5)}: Choose one of',
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           Wrap(
                             spacing: 8.0,
                             runSpacing: 4.0,
-                            children: _savedSelectiveGroups[index]
+                            children: entry.value
                                 .map((s) => Chip(label: Text(s)))
                                 .toList(),
                           ),

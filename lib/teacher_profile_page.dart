@@ -114,7 +114,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
             children: [
               Container(
                 padding: const EdgeInsets.all(24.0),
-                color: Colors.green.withOpacity(0.1),
+                color: Colors.green.withAlpha(25),
                 child: Column(
                   children: [
                     CircleAvatar(

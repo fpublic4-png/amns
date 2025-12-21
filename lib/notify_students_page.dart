@@ -52,10 +52,12 @@ class _NotifyStudentsPageState extends State<NotifyStudentsPage> {
         _titleController.clear();
         _messageController.clear();
 
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Notification sent successfully!')),
         );
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to send notification: $e')),
         );
