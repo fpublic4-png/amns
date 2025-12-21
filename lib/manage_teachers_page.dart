@@ -45,6 +45,7 @@ class ManageTeachersPage extends StatelessWidget {
                     final name = data['name'] ?? 'N/A';
                     final email = data['email'] ?? 'N/A';
                     final phone = data['phone'] ?? 'N/A';
+                    final teacherId = data['teacherId'] ?? 'N/A';
                     final isClassTeacher = data['isClassTeacher'] ?? false;
 
                     String subjectsDisplay = 'N/A';
@@ -81,6 +82,7 @@ class ManageTeachersPage extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 8),
+                            Text('ID: $teacherId'),
                             Text('Email: $email'),
                             Text('Phone: $phone'),
                             Text('Subjects: $subjectsDisplay'),
@@ -145,6 +147,7 @@ class AddTeacherDialog extends StatefulWidget {
 
 class _AddTeacherDialogState extends State<AddTeacherDialog> {
   final _formKey = GlobalKey<FormState>();
+  final _teacherIdController = TextEditingController();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -184,6 +187,7 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
     super.initState();
     if (widget.teacher != null) {
       final data = widget.teacher!.data() as Map<String, dynamic>;
+      _teacherIdController.text = data['teacherId'] ?? '';
       _nameController.text = data['name'] ?? '';
       _emailController.text = data['email'] ?? '';
       _passwordController.text = data['password'] ?? '';
@@ -229,6 +233,11 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              TextFormField(
+                controller: _teacherIdController,
+                decoration: const InputDecoration(labelText: 'Teacher ID'),
+                validator: (value) => value!.isEmpty ? 'Enter a teacher ID' : null,
+              ),
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Name'),
@@ -391,6 +400,7 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                   .toList();
 
               final teacherData = {
+                'teacherId': _teacherIdController.text,
                 'name': _nameController.text,
                 'email': _emailController.text,
                 'password': _passwordController.text,

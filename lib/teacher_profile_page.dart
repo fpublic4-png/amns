@@ -52,16 +52,13 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
 
   String _getClassTeacherInfo(Map<String, dynamic> teacherData) {
     if (teacherData['isClassTeacher'] == true) {
-      List<String> sections = [];
-      if (teacherData['Section C'] == true) sections.add('C');
-      if (teacherData['Section D'] == true) sections.add('D');
-      if (teacherData['Section E'] == true) sections.add('E');
-      // Add other sections as needed
-
-      if (sections.isNotEmpty) {
-        return 'Yes, for Section(s): ${sections.join(', ')}';
+      final className = teacherData['classTeacherClass'];
+      final section = teacherData['classTeacherSection'];
+      if (className != null && section != null) {
+        final isNumeric = int.tryParse(className.toString()) != null;
+        return 'Yes, for ${isNumeric ? 'Class $className' : className}, Section $section';
       } else {
-        return 'Yes';
+        return 'Yes (Class/Section not specified)';
       }
     } else {
       return 'No';
@@ -121,13 +118,13 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                       radius: 40,
                       backgroundColor: Colors.red,
                       child: Text(
-                        _getInitials(teacherData['fullName'] ?? ''),
+                        _getInitials(teacherData['name'] ?? ''),
                         style: const TextStyle(fontSize: 30, color: Colors.white),
                       ),
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      teacherData['fullName'] ?? 'N/A',
+                      teacherData['name'] ?? 'N/A',
                       style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
