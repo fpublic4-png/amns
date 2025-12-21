@@ -210,6 +210,9 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
                           final student = students[index];
                           final studentData =
                               student.data() as Map<String, dynamic>;
+                          final className = studentData['class']?.toString();
+                          final isNumeric =
+                              int.tryParse(className ?? '') != null;
 
                           return Card(
                             margin: const EdgeInsets.symmetric(
@@ -244,7 +247,7 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
                                           'Phone: ${studentData['phone'] ?? 'N/A'}',
                                         ),
                                         Text(
-                                          'Class: ${studentData['class']?.toString() ?? 'N/A'}',
+                                          'Class: ${isNumeric ? 'Class $className' : className ?? 'N/A'}',
                                         ),
                                         Text(
                                           'Section: ${studentData['section'] ?? 'N/A'}',
@@ -288,15 +291,20 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
 
   Stream<QuerySnapshot> _getStudentsStream() {
     if (_userRole == 'teacher') {
+      String? querySection = _teacherSection;
+      if (querySection != null && querySection.startsWith('Section ')) {
+        querySection = querySection.split(' ').last;
+      }
+
       developer.log(
-        'Querying students for teacher. Class: $_teacherClass, Section: $_teacherSection',
+        'Querying students for teacher. Class: $_teacherClass, Section: $querySection',
         name: 'myapp.manage_students',
       );
 
       return FirebaseFirestore.instance
           .collection('students')
           .where('class', isEqualTo: _teacherClass)
-          .where('section', isEqualTo: _teacherSection)
+          .where('section', isEqualTo: querySection)
           .snapshots();
     } else {
       developer.log(
@@ -346,18 +354,18 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
     'Nursery',
     'LKG',
     'UKG',
-    'Class 1',
-    'Class 2',
-    'Class 3',
-    'Class 4',
-    'Class 5',
-    'Class 6',
-    'Class 7',
-    'Class 8',
-    'Class 9',
-    'Class 10',
-    'Class 11',
-    'Class 12',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '10',
+    '11',
+    '12',
   ];
   final List<String> _sections = ['A', 'B', 'C', 'D', 'E'];
   final List<String> _houses = ['Earth', 'Uranus', 'Saturn', 'Mars'];
@@ -382,6 +390,10 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
     } else if (widget.userRole == 'teacher') {
       _selectedClass = widget.teacherClass;
       _selectedSection = widget.teacherSection;
+      if (_selectedSection != null &&
+          _selectedSection!.startsWith('Section ')) {
+        _selectedSection = _selectedSection!.split(' ').last;
+      }
     }
   }
 
@@ -456,6 +468,10 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isTeacher = widget.userRole == 'teacher';
+    final isNumericClass =
+        _selectedClass != null && int.tryParse(_selectedClass!) != null;
+
     return AlertDialog(
       title: Text(widget.student != null ? 'Edit Student' : 'Add Student'),
       content: Form(
@@ -521,7 +537,7 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
                 controller: _motherNameController,
                 decoration: const InputDecoration(labelText: 'Mother\'s Name'),
               ),
-              if (widget.userRole == 'admin')
+              if (!isTeacher)
                 Row(
                   children: [
                     Expanded(
@@ -529,9 +545,10 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
                         value: _selectedClass,
                         hint: const Text('Select Class'),
                         items: _classes.map((String value) {
+                          final isNumeric = int.tryParse(value) != null;
                           return DropdownMenuItem<String>(
                             value: value,
-                            child: Text(value),
+                            child: Text(isNumeric ? 'Class $value' : value),
                           );
                         }).toList(),
                         onChanged: (newValue) =>
@@ -548,7 +565,7 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
                         items: _sections.map((String value) {
                           return DropdownMenuItem<String>(
                             value: value,
-                            child: Text(value),
+                            child: Text('Section $value'),
                           );
                         }).toList(),
                         onChanged: (newValue) =>
@@ -563,7 +580,7 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
                   child: Text(
-                    'Class: ${widget.teacherClass} - ${widget.teacherSection}',
+                    'Class: ${isNumericClass ? 'Class $_selectedClass' : _selectedClass} - Section $_selectedSection',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),

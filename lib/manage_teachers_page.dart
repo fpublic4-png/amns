@@ -109,6 +109,11 @@ class _ManageTeachersPageState extends State<ManageTeachersPage> {
                           }
                         }
 
+                        final className = data['classTeacherClass'];
+                        final isNumeric =
+                            className != null &&
+                            int.tryParse(className) != null;
+
                         return Card(
                           margin: const EdgeInsets.symmetric(vertical: 8.0),
                           child: ListTile(
@@ -124,7 +129,7 @@ class _ManageTeachersPageState extends State<ManageTeachersPage> {
                                 ),
                                 if (data['isClassTeacher'] == true)
                                   Text(
-                                    'Class: ${data['classTeacherClass']}, Section: ${data['classTeacherSection']}',
+                                    'Class: ${isNumeric ? 'Class $className' : className}, Section: ${data['classTeacherSection']}',
                                   ),
                               ],
                             ),
@@ -226,18 +231,18 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
     'Nursery',
     'LKG',
     'UKG',
-    'Class 1',
-    'Class 2',
-    'Class 3',
-    'Class 4',
-    'Class 5',
-    'Class 6',
-    'Class 7',
-    'Class 8',
-    'Class 9',
-    'Class 10',
-    'Class 11',
-    'Class 12',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '10',
+    '11',
+    '12',
   ];
   final List<String> _sections = ['A', 'B', 'C', 'D', 'E'];
 
@@ -264,6 +269,10 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
       _isClassTeacher = data['isClassTeacher'] ?? false;
       _classTeacherClass = data['classTeacherClass'];
       _classTeacherSection = data['classTeacherSection'];
+      if (_classTeacherSection != null &&
+          _classTeacherSection!.startsWith('Section ')) {
+        _classTeacherSection = _classTeacherSection!.split(' ').last;
+      }
 
       if (data['classesTaught'] is Map) {
         _classesTaught =
@@ -394,7 +403,7 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                 decoration: const InputDecoration(labelText: 'Phone'),
               ),
               DropdownButtonFormField<String>(
-                initialValue: _selectedHouse,
+                value: _selectedHouse,
                 hint: const Text('Select House'),
                 items: _houses
                     .map(
@@ -416,11 +425,12 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               ..._classes.map((className) {
+                final isNumeric = int.tryParse(className) != null;
                 return ExpansionTile(
-                  title: Text(className),
+                  title: Text(isNumeric ? 'Class $className' : className),
                   children: _sections.map((sectionName) {
                     return CheckboxListTile(
-                      title: Text(sectionName),
+                      title: Text('Section $sectionName'),
                       value:
                           _classesTaught.containsKey(className) &&
                           _classesTaught[className]!.containsKey(sectionName) &&
@@ -447,16 +457,17 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: _classTeacherClass,
+                        value: _classTeacherClass,
                         hint: const Text('Select Class'),
-                        items: _classes
-                            .map(
-                              (className) => DropdownMenuItem(
-                                value: className,
-                                child: Text(className),
-                              ),
-                            )
-                            .toList(),
+                        items: _classes.map((className) {
+                          final isNumeric = int.tryParse(className) != null;
+                          return DropdownMenuItem(
+                            value: className,
+                            child: Text(
+                              isNumeric ? 'Class $className' : className,
+                            ),
+                          );
+                        }).toList(),
                         onChanged: (value) =>
                             setState(() => _classTeacherClass = value),
                       ),
@@ -464,13 +475,13 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: _classTeacherSection,
+                        value: _classTeacherSection,
                         hint: const Text('Select Section'),
                         items: _sections
                             .map(
                               (sectionName) => DropdownMenuItem(
                                 value: sectionName,
-                                child: Text(sectionName),
+                                child: Text('Section $sectionName'),
                               ),
                             )
                             .toList(),
