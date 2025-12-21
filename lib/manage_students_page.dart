@@ -22,34 +22,44 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
   }
 
   Future<void> _fetchUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userEmail = prefs.getString('userEmail');
-    final userRole = prefs.getString('userRole');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userEmail = prefs.getString('userEmail');
+      final userRole = prefs.getString('userRole');
 
-    setState(() {
-      _userRole = userRole;
-    });
+      if (!mounted) return;
 
-    if (userRole == 'teacher' && userEmail != null) {
-      final teacherQuery = await FirebaseFirestore.instance
-          .collection('teachers')
-          .where('email', isEqualTo: userEmail)
-          .limit(1)
-          .get();
+      setState(() {
+        _userRole = userRole;
+      });
 
-      if (teacherQuery.docs.isNotEmpty) {
-        final teacherData = teacherQuery.docs.first.data();
-        if (teacherData['isClassTeacher'] == true) {
-          setState(() {
-            _teacherClass = teacherData['classTeacherClass'];
-            _teacherSection = teacherData['classTeacherSection'];
-          });
+      if (userRole == 'teacher' && userEmail != null) {
+        final teacherQuery = await FirebaseFirestore.instance
+            .collection('teachers')
+            .where('email', isEqualTo: userEmail)
+            .limit(1)
+            .get();
+
+        if (mounted && teacherQuery.docs.isNotEmpty) {
+          final teacherData = teacherQuery.docs.first.data();
+          if (teacherData['isClassTeacher'] == true) {
+            setState(() {
+              _teacherClass = teacherData['classTeacherClass'];
+              _teacherSection = teacherData['classTeacherSection'];
+            });
+          }
         }
       }
+    } catch (e) {
+      // You can show a snackbar or a dialog here if needed
+      print('Error fetching user data: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   void _showAddStudentDialog({DocumentSnapshot? student}) {
@@ -108,39 +118,59 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final canAddStudent =
+        _userRole == 'admin' ||
+        (_userRole == 'teacher' && _teacherClass != null);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manage Students'),
         actions: [
-          if (_userRole == 'admin' ||
-              (_userRole == 'teacher' && _teacherClass != null))
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () => _showAddStudentDialog(),
+          if (canAddStudent)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: ElevatedButton.icon(
+                onPressed: () => _showAddStudentDialog(),
+                icon: const Icon(Icons.add, color: Colors.white),
+                label: const Text(
+                  'Add Student',
+                  style: TextStyle(color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                ),
+              ),
             ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _userRole == 'teacher' &&
-                (_teacherClass == null || _teacherSection == null)
-          ? const Center(child: Text('You are not a class teacher.'))
+          : _userRole == 'teacher' && _teacherClass == null
+          ? const Center(
+              child: Text('You are not assigned as a class teacher.'),
+            )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Student List',
-                        style: Theme.of(context).textTheme.headlineSmall,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text(
-                        'A list of all registered students' +
-                            (_userRole == 'teacher' ? ' in your class.' : '.'),
+                        'A list of all registered students.',
+                        style: TextStyle(color: Colors.grey),
                       ),
                     ],
                   ),
@@ -172,6 +202,7 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
                       final students = snapshot.data!.docs;
 
                       return ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
                         itemCount: students.length,
                         itemBuilder: (context, index) {
                           final student = students[index];
@@ -180,45 +211,61 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
 
                           return Card(
                             margin: const EdgeInsets.symmetric(
-                              horizontal: 16.0,
-                              vertical: 8.0,
+                              horizontal: 8.0,
+                              vertical: 6.0,
                             ),
-                            child: ListTile(
-                              title: Text(studentData['fullName'] ?? 'No Name'),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                            elevation: 3,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.0),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    'Email: ${studentData['email'] ?? 'N/A'}',
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          studentData['fullName'] ?? 'No Name',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Email: ${studentData['email'] ?? 'N/A'}',
+                                        ),
+                                        Text(
+                                          'Class: ${studentData['class'] ?? 'N/A'}',
+                                        ),
+                                        Text(
+                                          'Section: ${studentData['section'] ?? 'N/A'}',
+                                        ),
+                                        Text(
+                                          'House: ${studentData['house'] ?? 'N/A'}',
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  Text(
-                                    'Class: ${studentData['class'] ?? 'N/A'}',
-                                  ),
-                                  Text(
-                                    'Section: ${studentData['section'] ?? 'N/A'}',
-                                  ),
-                                  Text(
-                                    'House: ${studentData['house'] ?? 'N/A'}',
-                                  ),
-                                ],
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
                                   IconButton(
                                     icon: const Icon(
                                       Icons.edit,
-                                      color: Colors.blue,
+                                      color: Colors.blueAccent,
                                     ),
                                     onPressed: () =>
                                         _showAddStudentDialog(student: student),
+                                    tooltip: 'Edit Student',
                                   ),
                                   IconButton(
                                     icon: const Icon(
                                       Icons.delete,
-                                      color: Colors.red,
+                                      color: Colors.redAccent,
                                     ),
                                     onPressed: () => _deleteStudent(student.id),
+                                    tooltip: 'Delete Student',
                                   ),
                                 ],
                               ),
@@ -312,45 +359,45 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
   }
 
   Future<void> _addOrUpdateStudent() async {
-    if (_formKey.currentState!.validate()) {
-      final studentData = {
-        'studentId': _studentIdController.text,
-        'fullName': _fullNameController.text,
-        'email': _emailController.text,
-        'password': _passwordController.text,
-        'class': _selectedClass,
-        'section': _selectedSection,
-        'house': _selectedHouse,
-      };
+    if (!_formKey.currentState!.validate()) return;
 
-      try {
-        if (widget.student != null) {
-          await FirebaseFirestore.instance
-              .collection('students')
-              .doc(widget.student!.id)
-              .update(studentData);
-        } else {
-          await FirebaseFirestore.instance
-              .collection('students')
-              .add(studentData);
-        }
+    final studentData = {
+      'studentId': _studentIdController.text,
+      'fullName': _fullNameController.text,
+      'email': _emailController.text,
+      'password': _passwordController.text,
+      'class': _selectedClass,
+      'section': _selectedSection,
+      'house': _selectedHouse,
+    };
 
-        if (mounted) {
-          Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Student ${widget.student != null ? 'updated' : 'added'} successfully!',
-              ),
+    try {
+      if (widget.student != null) {
+        await FirebaseFirestore.instance
+            .collection('students')
+            .doc(widget.student!.id)
+            .update(studentData);
+      } else {
+        await FirebaseFirestore.instance
+            .collection('students')
+            .add(studentData);
+      }
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Student ${widget.student != null ? 'updated' : 'added'} successfully!',
             ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Failed to save student: $e')));
-        }
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save student: $e')));
       }
     }
   }
