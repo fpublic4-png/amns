@@ -12,72 +12,19 @@ class ManageSubjectsPage extends StatefulWidget {
 class _ManageSubjectsPageState extends State<ManageSubjectsPage> {
   bool _isEditMode = false;
   bool _isLoading = true;
+  bool _isSaving = false;
   String? _classAndSection;
 
   final _compulsorySubjectsController = TextEditingController();
-  List<TextEditingController> _selectiveGroupControllers = [];
+  final List<TextEditingController> _selectiveGroupControllers = [];
+
+  List<String> _savedCompulsorySubjects = [];
+  List<List<String>> _savedSelectiveGroups = [];
 
   @override
   void initState() {
     super.initState();
     _loadInitialData();
-  }
-
-  Future<void> _loadInitialData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userEmail = prefs.getString('userEmail');
-
-    if (userEmail == null) {
-      setState(() => _isLoading = false);
-      // Handle not logged in case
-      return;
-    }
-
-    final teacherQuery = await FirebaseFirestore.instance
-        .collection('teachers')
-        .where('email', isEqualTo: userEmail)
-        .limit(1)
-        .get();
-
-    if (teacherQuery.docs.isEmpty) {
-      setState(() => _isLoading = false);
-      // Handle teacher not found
-      return;
-    }
-
-    final teacherData = teacherQuery.docs.first.data();
-    if (teacherData['isClassTeacher'] == true &&
-        teacherData['classTeacherClass'] != null &&
-        teacherData['classTeacherSection'] != null) {
-      _classAndSection = 
-          '${teacherData['classTeacherClass']}-${teacherData['classTeacherSection']}';
-
-      final subjectConfigDoc = await FirebaseFirestore.instance
-          .collection('subject_configurations')
-          .doc(_classAndSection)
-          .get();
-
-      if (subjectConfigDoc.exists) {
-        final data = subjectConfigDoc.data()!;
-        _compulsorySubjectsController.text =
-            (data['compulsorySubjects'] as List<dynamic>).join(', ');
-
-        final selectiveGroups = 
-            data['selectiveSubjectGroups'] as List<dynamic>? ?? [];
-        _selectiveGroupControllers = selectiveGroups
-            .map((group) => TextEditingController(
-                text: (group as List<dynamic>).join(', ')))
-            .toList();
-        _isEditMode = false; // Start in view mode
-      } else {
-        _isEditMode = true; // No config, start in edit mode
-        _selectiveGroupControllers.add(TextEditingController()); // Add one empty group
-      }
-    } else {
-      // Not a class teacher, should not be on this page
-    }
-
-    setState(() => _isLoading = false);
   }
 
   @override
@@ -89,8 +36,79 @@ class _ManageSubjectsPageState extends State<ManageSubjectsPage> {
     super.dispose();
   }
 
+  Future<void> _loadInitialData() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    final userEmail = prefs.getString('userEmail');
+
+    if (userEmail == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    final teacherQuery = await FirebaseFirestore.instance
+        .collection('teachers')
+        .where('email', isEqualTo: userEmail)
+        .limit(1)
+        .get();
+
+    if (teacherQuery.docs.isEmpty) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    final teacherData = teacherQuery.docs.first.data();
+    if (teacherData['isClassTeacher'] == true &&
+        teacherData['classTeacherClass'] != null &&
+        teacherData['classTeacherSection'] != null) {
+      _classAndSection =
+          '${teacherData['classTeacherClass']}-${teacherData['classTeacherSection']}';
+
+      final subjectConfigDoc = await FirebaseFirestore.instance
+          .collection('subject_configurations')
+          .doc(_classAndSection)
+          .get();
+
+      if (subjectConfigDoc.exists) {
+        final data = subjectConfigDoc.data()!;
+        _savedCompulsorySubjects = List<String>.from(
+          data['compulsorySubjects'] ?? [],
+        );
+        _savedSelectiveGroups = (data['selectiveSubjectGroups'] as List? ?? [])
+            .map((group) => List<String>.from(group ?? []))
+            .toList();
+
+        _compulsorySubjectsController.text = _savedCompulsorySubjects.join(
+          ', ',
+        );
+        _selectiveGroupControllers.clear();
+        _selectiveGroupControllers.addAll(
+          _savedSelectiveGroups.map(
+            (group) => TextEditingController(text: group.join(', ')),
+          ),
+        );
+        _isEditMode = false;
+      } else {
+        _isEditMode = true;
+        _selectiveGroupControllers.add(TextEditingController());
+      }
+    } else {
+      _classAndSection = null; // Ensure it's null if not a class teacher
+    }
+
+    if (mounted) setState(() => _isLoading = false);
+  }
+
   Future<void> _saveSubjects() async {
-    if (_classAndSection == null) return;
+    if (_classAndSection == null || !mounted) return;
+
+    setState(() {
+      _isSaving = true;
+    });
 
     final compulsorySubjects = _compulsorySubjectsController.text
         .split(',')
@@ -99,29 +117,55 @@ class _ManageSubjectsPageState extends State<ManageSubjectsPage> {
         .toList();
 
     final selectiveSubjectGroups = _selectiveGroupControllers
-        .map((controller) => controller.text
-            .split(',')
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)
-            .toList())
+        .map(
+          (controller) => controller.text
+              .split(',')
+              .map((s) => s.trim())
+              .where((s) => s.isNotEmpty)
+              .toList(),
+        )
         .where((group) => group.isNotEmpty)
         .toList();
 
-    await FirebaseFirestore.instance
-        .collection('subject_configurations')
-        .doc(_classAndSection!)
-        .set({
-      'compulsorySubjects': compulsorySubjects,
-      'selectiveSubjectGroups': selectiveSubjectGroups,
-      'lastUpdated': FieldValue.serverTimestamp(),
-    });
+    try {
+      await FirebaseFirestore.instance
+          .collection('subject_configurations')
+          .doc(_classAndSection!)
+          .set({
+            'compulsorySubjects': compulsorySubjects,
+            'selectiveSubjectGroups': selectiveSubjectGroups,
+            'lastUpdated': FieldValue.serverTimestamp(),
+          });
 
-    setState(() {
-      _isEditMode = false;
-    });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Subjects saved successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // After saving, reload the data from Firestore to ensure UI is in sync.
+        await _loadInitialData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save subjects: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
   }
-  
-    void _addSelectiveGroup() {
+
+  void _addSelectiveGroup() {
     setState(() {
       _selectiveGroupControllers.add(TextEditingController());
     });
@@ -129,7 +173,8 @@ class _ManageSubjectsPageState extends State<ManageSubjectsPage> {
 
   void _removeSelectiveGroup(int index) {
     setState(() {
-      _selectiveGroupControllers.removeAt(index).dispose();
+      _selectiveGroupControllers[index].dispose();
+      _selectiveGroupControllers.removeAt(index);
     });
   }
 
@@ -138,58 +183,129 @@ class _ManageSubjectsPageState extends State<ManageSubjectsPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       appBar: AppBar(
-        title: Text('Manage Subjects for $_classAndSection', 
-          style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+        title: Text(
+          _classAndSection != null
+              ? 'Manage Subjects for $_classAndSection'
+              : 'Manage Subjects',
+          style: const TextStyle(
+            color: Colors.green,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.green),
         actions: [
-          if (!_isEditMode && !_isLoading)
+          if (!_isEditMode && !_isLoading && _classAndSection != null)
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: () => setState(() => _isEditMode = true),
-            )
+              tooltip: 'Edit Subjects',
+            ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _classAndSection == null 
-              ? const Center(child: Text('You are not a class teacher.'))
-              : _isEditMode ? _buildEditView() : _buildDisplayView(),
+          : _classAndSection == null
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  'You are not assigned as a class teacher for any class.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ),
+            )
+          : _isEditMode
+          ? _buildEditView()
+          : _buildDisplayView(),
     );
   }
 
   Widget _buildEditView() {
-    return ListView(
-      padding: const EdgeInsets.all(16.0),
+    return Stack(
       children: [
-        const Text('Compulsory Subjects', 
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _compulsorySubjectsController,
-          decoration: const InputDecoration(
-            hintText: 'e.g., English, Physics, Chemistry',
-            border: OutlineInputBorder(),
+        ListView(
+          padding: const EdgeInsets.all(16.0),
+          children: [
+            const Text(
+              'Compulsory Subjects',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _compulsorySubjectsController,
+              decoration: const InputDecoration(
+                hintText: 'e.g., English, Physics, Chemistry',
+                border: OutlineInputBorder(),
+                helperText: 'Separate subjects with a comma.',
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Selective Subject Groups',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ..._buildSelectiveGroupFields(),
+            const SizedBox(height: 16),
+            TextButton.icon(
+              icon: const Icon(Icons.add),
+              label: const Text('Add Selective Group'),
+              onPressed: _addSelectiveGroup,
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: _isSaving
+                      ? null
+                      : () => setState(() => _isEditMode = false),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton(
+                  onPressed: _isSaving ? null : _saveSubjects,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                  ),
+                  child: _isSaving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Save Subjects',
+                          style: TextStyle(fontSize: 16, color: Colors.white),
+                        ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        if (_isSaving)
+          Container(
+            color: Colors.black.withOpacity(0.3),
+            child: const Center(child: CircularProgressIndicator()),
           ),
-        ),
-        const SizedBox(height: 24),
-        const Text('Selective Subject Groups', 
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
-        const SizedBox(height: 8),
-        ..._buildSelectiveGroupFields(),
-        const SizedBox(height: 16),
-        TextButton.icon(
-          icon: const Icon(Icons.add), 
-          label: const Text('Add Selective Group'),
-          onPressed: _addSelectiveGroup,
-        ),
-        const SizedBox(height: 32),
-        ElevatedButton(
-          onPressed: _saveSubjects,
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 16)),
-          child: const Text('Save Subjects', style: TextStyle(fontSize: 16, color: Colors.white)),
-        ),
       ],
     );
   }
@@ -206,6 +322,7 @@ class _ManageSubjectsPageState extends State<ManageSubjectsPage> {
                 decoration: InputDecoration(
                   hintText: 'Group ${index + 1}: e.g., Maths, Biology',
                   border: const OutlineInputBorder(),
+                  helperText: 'Separate subjects with a comma.',
                 ),
               ),
             ),
@@ -220,66 +337,101 @@ class _ManageSubjectsPageState extends State<ManageSubjectsPage> {
   }
 
   Widget _buildDisplayView() {
-     final compulsorySubjects = _compulsorySubjectsController.text
-        .split(',')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
-
-    final selectiveSubjectGroups = _selectiveGroupControllers
-        .map((controller) => controller.text
-            .split(',')
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)
-            .toList())
-        .where((group) => group.isNotEmpty)
-        .toList();
+    if (_savedCompulsorySubjects.isEmpty && _savedSelectiveGroups.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'No subjects configured for this class yet.',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.edit),
+              label: const Text('Configure Now'),
+              onPressed: () => setState(() => _isEditMode = true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            ),
+          ],
+        ),
+      );
+    }
 
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
         Card(
+          elevation: 2,
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Compulsory Subjects', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8.0,
-                  runSpacing: 4.0,
-                  children: compulsorySubjects.map((s) => Chip(label: Text(s))).toList(),
+                const Text(
+                  'Compulsory Subjects',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
                 ),
+                const SizedBox(height: 8),
+                if (_savedCompulsorySubjects.isEmpty)
+                  const Text('None')
+                else
+                  Wrap(
+                    spacing: 8.0,
+                    runSpacing: 4.0,
+                    children: _savedCompulsorySubjects
+                        .map((s) => Chip(label: Text(s)))
+                        .toList(),
+                  ),
               ],
             ),
           ),
         ),
         const SizedBox(height: 16),
         Card(
+          elevation: 2,
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                 const Text('Selective Subject Groups', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
-                 const SizedBox(height: 8),
-                ...List.generate(selectiveSubjectGroups.length, (index) {
-                   return Padding(
-                     padding: const EdgeInsets.only(bottom: 8.0),
-                     child: Column(
-                       crossAxisAlignment: CrossAxisAlignment.start,
-                       children: [
-                         Text('Group ${index + 1}: Choose one of', style: const TextStyle(fontWeight: FontWeight.w600)),
-                         Wrap(
-                           spacing: 8.0,
-                           runSpacing: 4.0,
-                           children: selectiveSubjectGroups[index].map((s) => Chip(label: Text(s))).toList(),
-                         ),
-                       ],
-                     ),
-                   );
-                }),
+                const Text(
+                  'Selective Subject Groups',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (_savedSelectiveGroups.isEmpty)
+                  const Text('None')
+                else
+                  ...List.generate(_savedSelectiveGroups.length, (index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Group ${index + 1}: Choose one of',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          Wrap(
+                            spacing: 8.0,
+                            runSpacing: 4.0,
+                            children: _savedSelectiveGroups[index]
+                                .map((s) => Chip(label: Text(s)))
+                                .toList(),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
               ],
             ),
           ),

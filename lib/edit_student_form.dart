@@ -80,9 +80,12 @@ class _EditStudentFormState extends State<EditStudentForm> {
           Navigator.of(context).pop();
         }
       } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to update student: $e')));
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(
+              SnackBar(content: Text('Failed to update student: $e')));
+        }
       }
     }
   }

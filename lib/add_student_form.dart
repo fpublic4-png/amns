@@ -53,9 +53,11 @@ class _AddStudentFormState extends State<AddStudentForm> {
           Navigator.of(context).pop();
         }
       } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add student: $e')));
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to add student: $e')));
+        }
       }
     }
   }

@@ -55,9 +55,11 @@ class _TestScreenState extends State<TestScreen> {
         _questions = [];
       }
 
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     } catch (e, s) {
       developer.log(
         'Error fetching questions',
@@ -65,9 +67,11 @@ class _TestScreenState extends State<TestScreen> {
         error: e,
         stackTrace: s,
       );
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -80,9 +84,11 @@ class _TestScreenState extends State<TestScreen> {
         'Cannot submit test without a user ID.',
         name: 'myapp.test_screen',
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: You are not logged in.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error: You are not logged in.')),
+        );
+      }
       return;
     }
 
@@ -119,11 +125,13 @@ class _TestScreenState extends State<TestScreen> {
         name: 'myapp.test_screen',
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Test submitted successfully!')),
-      );
-      // Use pop until the tests page is visible to trigger a refresh
-      Navigator.pop(context);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Test submitted successfully!')),
+        );
+        // Use pop until the tests page is visible to trigger a refresh
+        Navigator.pop(context);
+      }
     } catch (e, s) {
       developer.log(
         'Error submitting test',
@@ -131,13 +139,15 @@ class _TestScreenState extends State<TestScreen> {
         error: e,
         stackTrace: s,
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'An error occurred while submitting. Please try again.',
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'An error occurred while submitting. Please try again.',
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
   }
 
@@ -148,44 +158,44 @@ class _TestScreenState extends State<TestScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _questions.isEmpty
-          ? const Center(child: Text('No questions found for this test.'))
-          : Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16.0),
-                    itemCount: _questions.length,
-                    itemBuilder: (context, index) {
-                      final question = _questions[index];
-                      return QuestionWidget(
-                        question: question,
-                        questionNumber: index + 1,
-                        selectedAnswer: _selectedAnswersByText[question['id']],
-                        onAnswerSelected: (answer) {
-                          setState(() {
-                            _selectedAnswersByText[question['id']] = answer;
-                          });
+              ? const Center(child: Text('No questions found for this test.'))
+              : Column(
+                  children: [
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16.0),
+                        itemCount: _questions.length,
+                        itemBuilder: (context, index) {
+                          final question = _questions[index];
+                          return QuestionWidget(
+                            question: question,
+                            questionNumber: index + 1,
+                            selectedAnswer: _selectedAnswersByText[question['id']],
+                            onAnswerSelected: (answer) {
+                              setState(() {
+                                _selectedAnswersByText[question['id']] = answer;
+                              });
+                            },
+                          );
                         },
-                      );
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: ElevatedButton(
-                    onPressed: _submitTest,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      minimumSize: const Size(double.infinity, 50),
+                      ),
                     ),
-                    child: const Text(
-                      'Submit Test',
-                      style: TextStyle(fontSize: 18, color: Colors.white),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: ElevatedButton(
+                        onPressed: _submitTest,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                        child: const Text(
+                          'Submit Test',
+                          style: TextStyle(fontSize: 18, color: Colors.white),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
     );
   }
 }
