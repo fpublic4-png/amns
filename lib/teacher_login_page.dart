@@ -24,9 +24,11 @@ class _TeacherLoginPageState extends State<TeacherLoginPage> {
           .get();
 
       if (teacherQuery.docs.isNotEmpty) {
+        final teacherData = teacherQuery.docs.first.data();
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('userRole', 'teacher');
         await prefs.setString('userId', _teacherIdController.text.trim());
+        await prefs.setString('userEmail', teacherData['email']); // Save the email
 
         if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/teacher_dashboard');
