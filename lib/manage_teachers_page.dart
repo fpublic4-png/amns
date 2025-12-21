@@ -239,13 +239,7 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
     'Class 11',
     'Class 12',
   ];
-  final List<String> _sections = [
-    'Section A',
-    'Section B',
-    'Section C',
-    'Section D',
-    'Section E',
-  ];
+  final List<String> _sections = ['A', 'B', 'C', 'D', 'E'];
 
   @override
   void initState() {
@@ -285,11 +279,11 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
     for (var className in _classes) {
       if (!_classesTaught.containsKey(className)) {
         _classesTaught[className] = {
-          'Section A': false,
-          'Section B': false,
-          'Section C': false,
-          'Section D': false,
-          'Section E': false,
+          'A': false,
+          'B': false,
+          'C': false,
+          'D': false,
+          'E': false,
         };
       } else {
         for (var sectionName in _sections) {

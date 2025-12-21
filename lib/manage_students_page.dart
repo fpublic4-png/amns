@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -50,9 +51,13 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
           }
         }
       }
-    } catch (e) {
-      // You can show a snackbar or a dialog here if needed
-      print('Error fetching user data: $e');
+    } catch (e, s) {
+      developer.log(
+        'Error fetching user data',
+        name: 'myapp.manage_students',
+        error: e,
+        stackTrace: s,
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -177,20 +182,17 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
                 ),
                 Expanded(
                   child: StreamBuilder<QuerySnapshot>(
-                    stream: _userRole == 'teacher'
-                        ? FirebaseFirestore.instance
-                              .collection('students')
-                              .where('class', isEqualTo: _teacherClass)
-                              .where('section', isEqualTo: _teacherSection)
-                              .snapshots()
-                        : FirebaseFirestore.instance
-                              .collection('students')
-                              .snapshots(),
+                    stream: _getStudentsStream(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
                       }
                       if (snapshot.hasError) {
+                        developer.log(
+                          'Error in students stream',
+                          name: 'myapp.manage_students',
+                          error: snapshot.error,
+                        );
                         return const Center(
                           child: Text('Something went wrong.'),
                         );
@@ -228,7 +230,7 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          studentData['fullName'] ?? 'No Name',
+                                          studentData['name'] ?? 'No Name',
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 16,
@@ -239,7 +241,10 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
                                           'Email: ${studentData['email'] ?? 'N/A'}',
                                         ),
                                         Text(
-                                          'Class: ${studentData['class'] ?? 'N/A'}',
+                                          'Phone: ${studentData['phone'] ?? 'N/A'}',
+                                        ),
+                                        Text(
+                                          'Class: ${studentData['class']?.toString() ?? 'N/A'}',
                                         ),
                                         Text(
                                           'Section: ${studentData['section'] ?? 'N/A'}',
@@ -280,6 +285,27 @@ class _ManageStudentsPageState extends State<ManageStudentsPage> {
             ),
     );
   }
+
+  Stream<QuerySnapshot> _getStudentsStream() {
+    if (_userRole == 'teacher') {
+      developer.log(
+        'Querying students for teacher. Class: $_teacherClass, Section: $_teacherSection',
+        name: 'myapp.manage_students',
+      );
+
+      return FirebaseFirestore.instance
+          .collection('students')
+          .where('class', isEqualTo: _teacherClass)
+          .where('section', isEqualTo: _teacherSection)
+          .snapshots();
+    } else {
+      developer.log(
+        'Querying all students for admin.',
+        name: 'myapp.manage_students',
+      );
+      return FirebaseFirestore.instance.collection('students').snapshots();
+    }
+  }
 }
 
 class AddStudentDialog extends StatefulWidget {
@@ -303,9 +329,14 @@ class AddStudentDialog extends StatefulWidget {
 class _AddStudentDialogState extends State<AddStudentDialog> {
   final _formKey = GlobalKey<FormState>();
   final _studentIdController = TextEditingController();
-  final _fullNameController = TextEditingController();
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _fatherNameController = TextEditingController();
+  final _fatherPhoneController = TextEditingController();
+  final _motherNameController = TextEditingController();
   String? _selectedClass;
   String? _selectedSection;
   String? _selectedHouse;
@@ -329,7 +360,7 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
     'Class 12',
   ];
   final List<String> _sections = ['A', 'B', 'C', 'D', 'E'];
-  final List<String> _houses = ['Ganga', 'Yamuna', 'Jhelum', 'Chenab'];
+  final List<String> _houses = ['Earth', 'Uranus', 'Saturn', 'Mars'];
 
   @override
   void initState() {
@@ -337,10 +368,15 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
     if (widget.student != null) {
       final studentData = widget.student!.data() as Map<String, dynamic>;
       _studentIdController.text = studentData['studentId'] ?? '';
-      _fullNameController.text = studentData['fullName'] ?? '';
+      _nameController.text = studentData['name'] ?? '';
       _emailController.text = studentData['email'] ?? '';
       _passwordController.text = studentData['password'] ?? '';
-      _selectedClass = studentData['class'];
+      _phoneController.text = studentData['phone'] ?? '';
+      _addressController.text = studentData['address'] ?? '';
+      _fatherNameController.text = studentData['fatherName'] ?? '';
+      _fatherPhoneController.text = studentData['fatherPhone'] ?? '';
+      _motherNameController.text = studentData['motherName'] ?? '';
+      _selectedClass = studentData['class']?.toString();
       _selectedSection = studentData['section'];
       _selectedHouse = studentData['house'];
     } else if (widget.userRole == 'teacher') {
@@ -352,9 +388,14 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
   @override
   void dispose() {
     _studentIdController.dispose();
-    _fullNameController.dispose();
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    _fatherNameController.dispose();
+    _fatherPhoneController.dispose();
+    _motherNameController.dispose();
     super.dispose();
   }
 
@@ -363,9 +404,14 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
 
     final studentData = {
       'studentId': _studentIdController.text,
-      'fullName': _fullNameController.text,
+      'name': _nameController.text,
       'email': _emailController.text,
       'password': _passwordController.text,
+      'phone': _phoneController.text,
+      'address': _addressController.text,
+      'fatherName': _fatherNameController.text,
+      'fatherPhone': _fatherPhoneController.text,
+      'motherName': _motherNameController.text,
       'class': _selectedClass,
       'section': _selectedSection,
       'house': _selectedHouse,
@@ -393,7 +439,13 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
           ),
         );
       }
-    } catch (e) {
+    } catch (e, s) {
+      developer.log(
+        'Error saving student',
+        name: 'myapp.manage_students',
+        error: e,
+        stackTrace: s,
+      );
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -419,7 +471,7 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
                     value!.isEmpty ? 'Please enter a student ID' : null,
               ),
               TextFormField(
-                controller: _fullNameController,
+                controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Full Name'),
                 validator: (value) =>
                     value!.isEmpty ? 'Please enter a name' : null,
@@ -448,6 +500,26 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
                 ),
                 validator: (value) =>
                     value!.isEmpty ? 'Please enter a password' : null,
+              ),
+              TextFormField(
+                controller: _phoneController,
+                decoration: const InputDecoration(labelText: 'Phone'),
+              ),
+              TextFormField(
+                controller: _addressController,
+                decoration: const InputDecoration(labelText: 'Address'),
+              ),
+              TextFormField(
+                controller: _fatherNameController,
+                decoration: const InputDecoration(labelText: 'Father\'s Name'),
+              ),
+              TextFormField(
+                controller: _fatherPhoneController,
+                decoration: const InputDecoration(labelText: 'Father\'s Phone'),
+              ),
+              TextFormField(
+                controller: _motherNameController,
+                decoration: const InputDecoration(labelText: 'Mother\'s Name'),
               ),
               if (widget.userRole == 'admin')
                 Row(
