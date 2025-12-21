@@ -113,7 +113,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Teacher'),
+        title: const Text('Teacher Dashboard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications),
@@ -177,62 +177,60 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           ],
         ),
       ),
-      body: Padding(
+      body: GridView.count(
+        crossAxisCount: 2,
         padding: const EdgeInsets.all(16.0),
+        children: [
+          _buildDashboardCard(
+            'Manage Chapters',
+            Icons.library_books,
+            () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageChaptersPage())),
+          ),
+          _buildDashboardCard(
+            'Upload Content',
+            Icons.upload_file,
+            () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UploadContentPage())),
+          ),
+          _buildDashboardCard(
+            'Manage Tests',
+            Icons.assignment,
+            () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageTestsPage())),
+          ),
+          _buildDashboardCard(
+            'Manage PYQs',
+            Icons.history_edu,
+            () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManagePyqsPage())),
+          ),
+          _buildDashboardCard(
+            'Send Homework',
+            Icons.send,
+            () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SendHomeworkPage())),
+          ),
+          if (_isClassTeacher)
+            _buildDashboardCard(
+              'Manage Subjects',
+              Icons.subject,
+              () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageSubjectsPage())),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashboardCard(String title, IconData icon, VoidCallback onTap) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15.0),
+      ),
+      child: InkWell(
+        onTap: onTap,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text(
-              'Teacher Dashboard',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15.0),
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(20.0),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15.0),
-                  gradient: const LinearGradient(
-                    colors: [Colors.green, Colors.teal],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.school, color: Colors.white, size: 40),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Welcome, ${_teacherName ?? 'Teacher'}!',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'This is your dashboard to manage educational content for your students. Use the sidebar to navigate through different management sections.',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Note: The management pages are placeholders. You\'ll need to implement CRUD (Create, Read, Update, Delete) functionality for lectures, study materials, tests, and PYQs using Firebase and server actions.',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            Icon(icon, size: 50, color: Colors.green),
+            const SizedBox(height: 10),
+            Text(title, textAlign: TextAlign.center),
           ],
         ),
       ),
