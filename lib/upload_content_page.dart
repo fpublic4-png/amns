@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
-class ManageStudentsPage extends StatelessWidget {
-  const ManageStudentsPage({super.key});
+class UploadContentPage extends StatelessWidget {
+  const UploadContentPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage Students'),
+        title: const Text('Upload Content'),
       ),
       body: const Center(
-        child: Text('Manage Students Page'),
+        child: Text('Upload Content Page'),
       ),
     );
   }

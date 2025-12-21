@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
-class ManageStudentsPage extends StatelessWidget {
-  const ManageStudentsPage({super.key});
+class SendHomeworkPage extends StatelessWidget {
+  const SendHomeworkPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage Students'),
+        title: const Text('Send Homework'),
       ),
       body: const Center(
-        child: Text('Manage Students Page'),
+        child: Text('Send Homework Page'),
       ),
     );
   }
