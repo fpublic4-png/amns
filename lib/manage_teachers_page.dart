@@ -400,7 +400,7 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                 decoration: const InputDecoration(labelText: 'Phone'),
               ),
               DropdownButtonFormField<String>(
-                value: _selectedHouse,
+                initialValue: _selectedHouse,
                 hint: const Text('Select House'),
                 items: _houses
                     .map(
@@ -442,7 +442,7 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                     );
                   }).toList(),
                 );
-              }).toList(),
+              }),
               CheckboxListTile(
                 title: const Text('Is Class Teacher?'),
                 value: _isClassTeacher,
@@ -453,7 +453,7 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _classTeacherClass,
+                        initialValue: _classTeacherClass,
                         hint: const Text('Select Class'),
                         items: _classes
                             .map(
@@ -470,7 +470,7 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _classTeacherSection,
+                        initialValue: _classTeacherSection,
                         hint: const Text('Select Section'),
                         items: _sections
                             .map(
