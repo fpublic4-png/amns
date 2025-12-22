@@ -18,7 +18,7 @@ class _TakeAttendancePageState extends State<TakeAttendancePage> {
   Map<String, String> _attendanceStatus = {};
   bool _isLoading = true;
   bool _isAttendanceSavedToday = false;
-  String _currentDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  final String _currentDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
   @override
   void initState() {
