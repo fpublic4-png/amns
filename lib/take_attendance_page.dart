@@ -17,7 +17,8 @@ class _TakeAttendancePageState extends State<TakeAttendancePage> {
   List<DocumentSnapshot> _students = [];
   Map<String, String> _attendanceStatus = {};
   bool _isLoading = true;
-  final String _currentDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  bool _isAttendanceSavedToday = false;
+  String _currentDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
   @override
   void initState() {
@@ -68,9 +69,8 @@ class _TakeAttendancePageState extends State<TakeAttendancePage> {
         .get();
     setState(() {
       _students = studentQuery.docs;
-      // Default all to 'Present'
       for (var student in _students) {
-        _attendanceStatus[student.id] = 'Present';
+        _attendanceStatus.putIfAbsent(student.id, () => 'Present');
       }
     });
   }
@@ -85,20 +85,23 @@ class _TakeAttendancePageState extends State<TakeAttendancePage> {
 
     if (attendanceQuery.docs.isNotEmpty) {
       Map<String, String> newStatus = {};
+      bool allHoliday = true;
       for (var doc in attendanceQuery.docs) {
         final data = doc.data();
         newStatus[data['studentId']] = data['status'];
+        if(data['status'] != 'Holiday') allHoliday = false;
       }
       setState(() {
         _attendanceStatus = newStatus;
+        _isAttendanceSavedToday = true;
       });
     }
   }
 
-  void _markAllAsLeave() {
+  void _markAllAsHoliday() {
     setState(() {
       for (var student in _students) {
-        _attendanceStatus[student.id] = 'Leave';
+        _attendanceStatus[student.id] = 'Holiday';
       }
     });
   }
@@ -126,8 +129,12 @@ class _TakeAttendancePageState extends State<TakeAttendancePage> {
 
     await batch.commit();
 
+    setState(() {
+      _isAttendanceSavedToday = true;
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Attendance saved successfully!')),
+      const SnackBar(content: Text('Attendance saved successfully!'), backgroundColor: Colors.green),
     );
   }
 
@@ -137,73 +144,116 @@ class _TakeAttendancePageState extends State<TakeAttendancePage> {
       appBar: AppBar(
         title: const Text('Take Attendance'),
         actions: [
-          TextButton.icon(
-            onPressed: _markAllAsLeave,
-            icon: const Icon(Icons.event_busy, color: Colors.white),
-            label: const Text('Holiday', style: TextStyle(color: Colors.white)),
-          )
+          if (!_isAttendanceSavedToday)
+            TextButton.icon(
+              onPressed: _markAllAsHoliday,
+              icon: const Icon(Icons.event_busy, color: Colors.white),
+              label: const Text('Holiday', style: TextStyle(color: Colors.white)),
+            )
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _class == null || _section == null
               ? const Center(
-                  child: Text(
-                    'You are not assigned as a class teacher.',
-                    style: TextStyle(fontSize: 16, color: Colors.red),
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text(
+                      'You are not assigned as a class teacher for any class.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 16, color: Colors.red),
+                    ),
                   ),
                 )
-              : Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Text(
-                        'Date: $_currentDate',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: _students.length,
-                        itemBuilder: (context, index) {
-                          final student = _students[index];
-                          final studentData = student.data() as Map<String, dynamic>;
-                          final studentId = student.id;
+              : _isAttendanceSavedToday
+                  ? _buildSavedView()
+                  : _buildEditView(),
+      floatingActionButton: _isAttendanceSavedToday || _isLoading || _class == null
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _saveAttendance,
+              icon: const Icon(Icons.save),
+              label: const Text('Save Attendance'),
+            ),
+    );
+  }
 
-                          return Card(
-                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    child: Text(studentData['rollNumber']?.toString() ?? '-'),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Text(
-                                      studentData['name'] ?? 'N/A',
-                                      style: const TextStyle(fontSize: 16),
-                                    ),
-                                  ),
-                                  _buildAttendanceButton(studentId, 'Present', Colors.green),
-                                  const SizedBox(width: 8),
-                                  _buildAttendanceButton(studentId, 'Absent', Colors.red),
-                                  const SizedBox(width: 8),
-                                  _buildAttendanceButton(studentId, 'Leave', Colors.amber),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+  Widget _buildEditView() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text(
+            'Date: $_currentDate',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: _students.length,
+            itemBuilder: (context, index) {
+              final student = _students[index];
+              final studentData = student.data() as Map<String, dynamic>;
+              final studentId = student.id;
+
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        child: Text(studentData['rollNumber']?.toString() ?? '-'),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          studentData['name'] ?? 'N/A',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                      _buildAttendanceButton(studentId, 'Present', Colors.green),
+                      const SizedBox(width: 8),
+                      _buildAttendanceButton(studentId, 'Absent', Colors.red),
+                      const SizedBox(width: 8),
+                      _buildAttendanceButton(studentId, 'Leave', Colors.amber),
+                    ],
+                  ),
                 ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _saveAttendance,
-        icon: const Icon(Icons.save),
-        label: const Text('Save Attendance'),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSavedView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.check_circle, color: Colors.green, size: 80),
+          const SizedBox(height: 20),
+          Text(
+            'Attendance for $_currentDate has been saved.',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: () {
+              setState(() {
+                _isAttendanceSavedToday = false;
+              });
+            },
+            icon: const Icon(Icons.edit),
+            label: const Text('Edit Attendance'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
       ),
     );
   }
