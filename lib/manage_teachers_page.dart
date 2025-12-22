@@ -312,10 +312,10 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                     ),
                   ],
                 );
-              }).toList(),
+              }),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _selectedHouse,
+                initialValue: _selectedHouse,
                 decoration: const InputDecoration(labelText: 'House'),
                 items: _houses.map((String house) {
                   return DropdownMenuItem<String>(
@@ -347,7 +347,7 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _classTeacherClass,
+                        initialValue: _classTeacherClass,
                         decoration: const InputDecoration(labelText: 'Class'),
                         items: _classes.map((String value) {
                           return DropdownMenuItem<String>(
@@ -365,7 +365,7 @@ class _AddTeacherDialogState extends State<AddTeacherDialog> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _classTeacherSection,
+                        initialValue: _classTeacherSection,
                         decoration: const InputDecoration(labelText: 'Section'),
                         items: _sections.map((String value) {
                           return DropdownMenuItem<String>(

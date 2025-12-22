@@ -237,7 +237,7 @@ class _EditStudentFormState extends State<EditStudentForm> {
                         labelText: 'Class',
                         border: OutlineInputBorder(),
                       ),
-                      value: _selectedClass,
+                      initialValue: _selectedClass,
                       items: _classes.map((String className) {
                         final isNumeric = int.tryParse(className) != null;
                         return DropdownMenuItem<String>(
@@ -263,7 +263,7 @@ class _EditStudentFormState extends State<EditStudentForm> {
                         labelText: 'House',
                         border: OutlineInputBorder(),
                       ),
-                      value: _selectedHouse,
+                      initialValue: _selectedHouse,
                       items: _houses.map((String house) {
                         return DropdownMenuItem<String>(
                           value: house,
@@ -284,7 +284,7 @@ class _EditStudentFormState extends State<EditStudentForm> {
                         labelText: 'Section',
                         border: OutlineInputBorder(),
                       ),
-                      value: _selectedSection,
+                      initialValue: _selectedSection,
                       items: _sections.map((String section) {
                         return DropdownMenuItem<String>(
                           value: section,

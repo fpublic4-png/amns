@@ -520,7 +520,7 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _selectedClass,
+                        initialValue: _selectedClass,
                         hint: const Text('Select Class'),
                         items: _classes.map((String value) {
                           return DropdownMenuItem<String>(
@@ -537,7 +537,7 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _selectedSection,
+                        initialValue: _selectedSection,
                         hint: const Text('Select Section'),
                         items: _sections.map((String value) {
                           return DropdownMenuItem<String>(
@@ -562,7 +562,7 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
                   ),
                 ),
               DropdownButtonFormField<String>(
-                value: _selectedHouse,
+                initialValue: _selectedHouse,
                 hint: const Text('Select House'),
                 items: _houses.map((String house) {
                   return DropdownMenuItem<String>(

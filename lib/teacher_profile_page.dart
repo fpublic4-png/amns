@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:myapp/login_page.dart';
 
@@ -12,6 +15,7 @@ class TeacherProfilePage extends StatefulWidget {
 
 class _TeacherProfilePageState extends State<TeacherProfilePage> {
   Future<DocumentSnapshot>? _teacherFuture;
+  String? _profilePictureUrl;
 
   @override
   void initState() {
@@ -31,7 +35,11 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
           .get();
 
       if (teacherQuery.docs.isNotEmpty) {
-        return teacherQuery.docs.first;
+        final teacherDoc = teacherQuery.docs.first;
+        setState(() {
+          _profilePictureUrl = (teacherDoc.data())['profilePicture'];
+        });
+        return teacherDoc;
       } else {
         throw Exception('Teacher not found');
       }
@@ -43,9 +51,9 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
   String _getInitials(String name) {
     final names = name.split(' ');
     if (names.length > 1) {
-      return names.first.substring(0, 1) + names.last.substring(0, 1);
+      return names.first.substring(0, 1).toUpperCase() + names.last.substring(0, 1).toUpperCase();
     } else if (names.isNotEmpty) {
-      return names.first.substring(0, 1);
+      return names.first.substring(0, 1).toUpperCase();
     }
     return '';
   }
@@ -56,12 +64,43 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
       final section = teacherData['classTeacherSection'];
       if (className != null && section != null) {
         final isNumeric = int.tryParse(className.toString()) != null;
-        return 'Yes, for ${isNumeric ? 'Class $className' : className}, Section $section';
+        return 'Yes, for ${isNumeric ? 'Class $className' : className}, Section: $section';
       } else {
         return 'Yes (Class/Section not specified)';
       }
     } else {
       return 'No';
+    }
+  }
+
+  Future<void> _uploadProfilePicture() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      final file = File(pickedFile.path);
+      final prefs = await SharedPreferences.getInstance();
+      final userEmail = prefs.getString('userEmail');
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_pictures')
+          .child('$userEmail.jpg');
+
+      await storageRef.putFile(file);
+      final downloadUrl = await storageRef.getDownloadURL();
+
+      final teacherQuery = await FirebaseFirestore.instance
+          .collection('teachers')
+          .where('email', isEqualTo: userEmail)
+          .limit(1)
+          .get();
+
+      if (teacherQuery.docs.isNotEmpty) {
+        await teacherQuery.docs.first.reference.update({'profilePicture': downloadUrl});
+        setState(() {
+          _profilePictureUrl = downloadUrl;
+        });
+      }
     }
   }
 
@@ -114,13 +153,29 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                 color: Colors.green.withAlpha(25),
                 child: Column(
                   children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: Colors.red,
-                      child: Text(
-                        _getInitials(teacherData['name'] ?? ''),
-                        style: const TextStyle(fontSize: 30, color: Colors.white),
-                      ),
+                    Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundImage: _profilePictureUrl != null
+                              ? NetworkImage(_profilePictureUrl!)
+                              : null,
+                          child: _profilePictureUrl == null
+                              ? Text(
+                                  _getInitials(teacherData['name'] ?? ''),
+                                  style: const TextStyle(fontSize: 40, color: Colors.white),
+                                )
+                              : null,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: IconButton(
+                            icon: const Icon(Icons.camera_alt, color: Colors.green),
+                            onPressed: _uploadProfilePicture,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     Text(
