@@ -46,7 +46,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       if (teacherQuery.docs.isNotEmpty) {
         final teacherData = teacherQuery.docs.first.data();
         setState(() {
-          _teacherName = teacherData['fullName'];
+          _teacherName = teacherData['name'];
           _isClassTeacher = teacherData['isClassTeacher'] ?? false;
         });
       }
@@ -211,6 +211,12 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               'Manage Subjects',
               Icons.subject,
               () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageSubjectsPage())),
+            ),
+          if (_isClassTeacher)
+            _buildDashboardCard(
+              'Take Attendance',
+              Icons.event_available,
+              () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TakeAttendancePage())),
             ),
         ],
       ),
