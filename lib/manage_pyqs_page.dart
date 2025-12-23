@@ -18,7 +18,7 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
   String? _selectedSubject;
   String? _teacherId;
 
-  List<String> _years = [];
+  final List<String> _years = [];
   List<String> _classSections = [];
   List<String> _subjects = [];
 
@@ -260,7 +260,7 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
         Text(label, style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black87)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           decoration: InputDecoration(
             filled: true,
             fillColor: const Color(0xFFF7F8F9),
