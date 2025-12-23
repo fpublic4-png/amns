@@ -328,7 +328,7 @@ class _UploadLectureViewState extends State<UploadLectureView> {
         Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           decoration: InputDecoration(
             border: const OutlineInputBorder(), 
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4)
