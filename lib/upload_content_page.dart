@@ -51,8 +51,10 @@ class _UploadContentPageState extends State<UploadContentPage>
         children: const [
           UploadLectureView(),
           Center(
-            child: Text('Upload Materials feature coming soon!',
-                style: TextStyle(color: Colors.grey)),
+            child: Text(
+              'Under construction 🚧',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.orangeAccent),
+            ),
           ),
         ],
       ),
