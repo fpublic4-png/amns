@@ -247,7 +247,7 @@ class _UploadLectureViewState extends State<UploadLectureView> {
                     }, 'Select Subject'),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: _selectedChapterId,
+                      initialValue: _selectedChapterId,
                       items: _chapterItems,
                       onChanged: (val) => setState(() => _selectedChapterId = val),
                       hint: const Text('Select Chapter'),
@@ -282,7 +282,7 @@ class _UploadLectureViewState extends State<UploadLectureView> {
 
   Widget _buildDropdown(String label, String? value, List<String> items, Function(String?) onChanged, String hint) {
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       items: items.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(),
       onChanged: onChanged,
       hint: Text(hint),
@@ -553,7 +553,7 @@ class _UploadMaterialViewState extends State<UploadMaterialView> {
           _buildDropdown('Subject', _selectedSubject, _subjects, (val) { setState(() { _selectedSubject = val; _selectedChapterId=null; _loadChapters(); }); }, 'Select Subject'),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _selectedChapterId,
+            initialValue: _selectedChapterId,
             items: _chapterItems,
             onChanged: (val) => setState(() => _selectedChapterId = val),
             hint: const Text('Select Chapter'),
@@ -604,7 +604,7 @@ class _UploadMaterialViewState extends State<UploadMaterialView> {
               _buildTextField(_questionTextController, '', 'Type the question text here...'),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _newQuestionType,
+                initialValue: _newQuestionType,
                 items: ['Objective', 'Subjective'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                 onChanged: (val) => setState(() => _newQuestionType = val!),
                 decoration: _inputDecoration(hint: 'Select Question Type'),
@@ -729,7 +729,7 @@ class _UploadMaterialViewState extends State<UploadMaterialView> {
 
   Widget _buildDropdown(String label, String? value, List<String> items, Function(String?) onChanged, String hint) {
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       items: items.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(),
       onChanged: onChanged,
       hint: Text(hint),

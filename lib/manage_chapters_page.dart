@@ -50,7 +50,9 @@ class _ManageChaptersPageState extends State<ManageChaptersPage> {
         if (teacherData['classes_taught'] is Map) {
           (teacherData['classes_taught'] as Map).forEach((className, sections) {
             if (sections is List) {
-              sections.forEach((section) => classSections.add('$className-$section'));
+              for (var section in sections) {
+                classSections.add('$className-$section');
+              }
             }
           });
         }
@@ -182,7 +184,7 @@ class _ManageChaptersPageState extends State<ManageChaptersPage> {
               const Text('Class', style: TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedClassSection,
+                initialValue: _selectedClassSection,
                 decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
                 items: classSections.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
                 onChanged: (newValue) => setState(() => _selectedClassSection = newValue),
@@ -193,7 +195,7 @@ class _ManageChaptersPageState extends State<ManageChaptersPage> {
               const Text('Subject', style: TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedSubject,
+                initialValue: _selectedSubject,
                 decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
                 items: subjects.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
                 onChanged: (newValue) => setState(() => _selectedSubject = newValue),

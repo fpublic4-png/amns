@@ -11,6 +11,7 @@ class SendHomeworkPage extends StatefulWidget {
 }
 
 class _SendHomeworkPageState extends State<SendHomeworkPage> {
+  final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _dueDateController = TextEditingController();
@@ -23,54 +24,93 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
   bool _isLoading = true;
   Stream<QuerySnapshot>? _homeworkStream;
 
+  String? _filterClassSection;
+
   @override
   void initState() {
     super.initState();
     _loadTeacherData();
   }
 
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _dueDateController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadTeacherData() async {
     final prefs = await SharedPreferences.getInstance();
     final userEmail = prefs.getString('userEmail');
     if (userEmail == null) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
-    final teacherQuery = await FirebaseFirestore.instance
-        .collection('teachers')
-        .where('email', isEqualTo: userEmail)
-        .limit(1)
-        .get();
+    try {
+      final teacherQuery = await FirebaseFirestore.instance
+          .collection('teachers')
+          .where('email', isEqualTo: userEmail)
+          .limit(1)
+          .get();
 
-    if (teacherQuery.docs.isNotEmpty) {
-      final teacherDoc = teacherQuery.docs.first;
-      final teacherData = teacherDoc.data();
-      _teacherId = teacherDoc.id;
+      if (teacherQuery.docs.isNotEmpty) {
+        final teacherDoc = teacherQuery.docs.first;
+        final teacherData = teacherDoc.data();
+        _teacherId = teacherDoc.id;
 
-      final List<String> classSections = [];
-      if (teacherData['classes_taught'] is Map) {
-        (teacherData['classes_taught'] as Map).forEach((className, sections) {
-          if (sections is List) {
-            for (var section in sections) {
-              classSections.add('$className-$section');
+        final List<String> classSections = [];
+        if (teacherData['classes_taught'] is Map) {
+          (teacherData['classes_taught'] as Map).forEach((className, sections) {
+            if (sections is List) {
+              for (var section in sections) {
+                classSections.add('$className-$section');
+              }
             }
-          }
-        });
-      }
+          });
+        }
 
-      setState(() {
-        _classSections = classSections;
-        _homeworkStream = FirebaseFirestore.instance
-            .collection('homework')
-            .where('teacherId', isEqualTo: _teacherId)
-            .orderBy('createdAt', descending: true)
-            .snapshots();
-        _isLoading = false;
-      });
-    } else {
-      setState(() => _isLoading = false);
+        if (mounted) {
+          setState(() {
+            _classSections = classSections;
+            _isLoading = false;
+          });
+          _updateHomeworkStream();
+        }
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading data: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
+  }
+
+  void _updateHomeworkStream() {
+    if (_teacherId == null) return;
+
+    Query query = FirebaseFirestore.instance
+        .collection('homework')
+        .where('teacherId', isEqualTo: _teacherId);
+
+    if (_filterClassSection != null) {
+      final parts = _filterClassSection!.split('-');
+      query = query.where('class', isEqualTo: parts[0]);
+      if (parts.length > 1) {
+        query = query.where('section', isEqualTo: parts[1]);
+      }
+    }
+
+    query = query.orderBy('createdAt', descending: true);
+
+    setState(() {
+      _homeworkStream = query.snapshots();
+    });
   }
 
   Future<void> _selectDueDate(BuildContext context) async {
@@ -79,6 +119,18 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
       initialDate: _selectedDueDate ?? DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2101),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Colors.green,
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null && picked != _selectedDueDate) {
       setState(() {
@@ -89,44 +141,57 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
   }
 
   Future<void> _sendHomework() async {
-    if (_formKey.currentState!.validate()) {
+    if (_formKey.currentState?.validate() ?? false) {
        if (_selectedClassSection == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please select a class.'), backgroundColor: Colors.red),
         );
         return;
       }
-      
       final parts = _selectedClassSection!.split('-');
       final className = parts[0];
-      final section = parts[1];
+      final section = parts.length > 1 ? parts[1] : '';
 
-      await FirebaseFirestore.instance.collection('homework').add({
-        'title': _titleController.text.trim(),
-        'description': _descriptionController.text.trim(),
-        'class': className,
-        'section': section,
-        'dueDate': _dueDateController.text,
-        'teacherId': _teacherId,
-        'createdAt': Timestamp.now(),
-      });
+      try {
+        await FirebaseFirestore.instance.collection('homework').add({
+          'title': _titleController.text.trim(),
+          'description': _descriptionController.text.trim(),
+          'class': className,
+          'section': section,
+          'dueDate': _dueDateController.text,
+          'teacherId': _teacherId,
+          'createdAt': Timestamp.now(),
+        });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Homework sent successfully!'), backgroundColor: Colors.green),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Homework sent successfully!'), backgroundColor: Colors.green),
+        );
 
-      _titleController.clear();
-      _descriptionController.clear();
-      _dueDateController.clear();
-      setState(() {
-        _selectedClassSection = null;
-        _selectedDueDate = null;
-      });
-       FocusScope.of(context).unfocus();
+        _formKey.currentState?.reset();
+        _titleController.clear();
+        _descriptionController.clear();
+        _dueDateController.clear();
+        if (mounted) {
+          setState(() {
+            _selectedClassSection = null;
+            _selectedDueDate = null;
+          });
+        }
+        FocusScope.of(context).unfocus();
+      } catch (e) {
+         ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send homework: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
-  
-  final _formKey = GlobalKey<FormState>();
+
+  void _clearFilters() {
+    setState(() {
+      _filterClassSection = null;
+    });
+    _updateHomeworkStream();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -142,18 +207,17 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
           ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.green)))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildAssignmentCard(),
-                    const SizedBox(height: 32),
-                    const Text('Homework History', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87)),
-                    const SizedBox(height: 16),
-                    _buildHomeworkHistory(),
-                  ],
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildAssignmentCard(),
+                  const SizedBox(height: 32),
+                  const Text('Homework History', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87)),
+                  const SizedBox(height: 16),
+                  _buildHistoryFilterCard(),
+                  const SizedBox(height: 16),
+                  _buildHomeworkHistory(),
+                ],
               ),
             ),
     );
@@ -165,49 +229,84 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.green.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))],
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Assignment Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text('Fill out the details below to assign homework to a class.', style: TextStyle(color: Colors.grey, fontSize: 14)),
+            const SizedBox(height: 24),
+            _buildTextField(label: 'Homework Title', controller: _titleController, hint: 'e.g., Algebra Chapter 5 Practice'),
+            const SizedBox(height: 16),
+            _buildTextField(label: 'Description', controller: _descriptionController, hint: 'Complete exercises 1-10 on page 56.', maxLines: 3),
+            const SizedBox(height: 16),
+            _buildDropdown(label: 'Class & Section', value: _selectedClassSection, items: _classSections, hint: 'Select a class', onChanged: (val) => setState(() => _selectedClassSection = val), validator: (val) => val == null ? 'Please select a class' : null),
+            const SizedBox(height: 16),
+            _buildDateField(label: 'Due Date', controller: _dueDateController),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _sendHomework,
+                icon: const Icon(Icons.send_outlined, size: 18),
+                label: const Text('Send Homework'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHistoryFilterCard() {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Assignment Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          const Text('Fill out the details below to assign homework to a class.', style: TextStyle(color: Colors.grey, fontSize: 12)),
-          const SizedBox(height: 24),
-          _buildTextField(label: 'Homework Title', controller: _titleController, hint: 'e.g., Algebra Chapter 5 Practice'),
+          const Text("Filter History", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          _buildTextField(label: 'Description / Instructions', controller: _descriptionController, hint: 'Complete exercises 1-10 on page 56.', maxLines: 3),
-          const SizedBox(height: 16),
-          _buildDropdown(label: 'Class & Section', value: _selectedClassSection, items: _classSections.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), hint: 'Select a class'),
-          const SizedBox(height: 16),
-          _buildDateField(label: 'Due Date', controller: _dueDateController),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _sendHomework,
-              icon: const Icon(Icons.send_outlined, size: 18),
-              label: const Text('Send Homework'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                textStyle: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
+          _buildDropdown(
+            label: 'Class',
+            value: _filterClassSection,
+            items: _classSections,
+            hint: 'All Classes',
+            onChanged: (value) {
+              setState(() => _filterClassSection = value);
+              _updateHomeworkStream();
+            },
           ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _clearFilters,
+              icon: const Icon(Icons.clear, size: 16),
+              label: const Text('Clear Filter'),
+              style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            ),
+          )
         ],
       ),
     );
   }
-  
+
   Widget _buildTextField({required String label, required TextEditingController controller, required String hint, int maxLines = 1}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -221,16 +320,11 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
             hintText: hint,
             filled: true,
             fillColor: const Color(0xFFF7F8F9),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
           validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please enter a $label';
-            }
+            if (value == null || value.trim().isEmpty) return 'This field cannot be empty';
             return null;
           },
         ),
@@ -238,7 +332,7 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
     );
   }
 
-  Widget _buildDropdown({required String label, required String? value, required List<DropdownMenuItem<String>> items, required String hint}) {
+  Widget _buildDropdown({required String label, String? value, required List<String> items, required String hint, required ValueChanged<String?> onChanged, FormFieldValidator<String>? validator}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -249,27 +343,21 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
           decoration: InputDecoration(
             filled: true,
             fillColor: const Color(0xFFF7F8F9),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           ),
           hint: Text(hint),
-          items: items,
-          onChanged: (newValue) {
-            setState(() {
-              _selectedClassSection = newValue;
-            });
-          },
-          validator: (value) => value == null ? 'Please select a class' : null,
+          items: items.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(),
+          onChanged: onChanged,
+          validator: validator,
+          isExpanded: true,
         ),
       ],
     );
   }
-  
+
   Widget _buildDateField({required String label, required TextEditingController controller}) {
-     return Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black87)),
@@ -281,20 +369,12 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
           decoration: InputDecoration(
             hintText: 'Pick a date',
             prefixIcon: const Icon(Icons.calendar_today_outlined, color: Colors.grey),
-             filled: true,
+            filled: true,
             fillColor: const Color(0xFFF7F8F9),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
-           validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please pick a due date';
-            }
-            return null;
-          },
+          validator: (value) => (value == null || value.isEmpty) ? 'Please pick a due date' : null,
         ),
       ],
     );
@@ -305,34 +385,23 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.green.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))],
       ),
       child: StreamBuilder<QuerySnapshot>(
         stream: _homeworkStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Padding(
-              padding: EdgeInsets.all(48.0),
-              child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.green))),
-            );
+            return const Padding(padding: EdgeInsets.all(48.0), child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.green))));
+          }
+          if (snapshot.hasError) {
+            return Center(child: Padding(padding: const EdgeInsets.all(20), child: Text("Error: ${snapshot.error}", style: const TextStyle(color: Colors.red))));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Column(
               children: [
-                 _buildHistoryTableHeader(),
-                 const Divider(height: 1),
-                 const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 48.0),
-                  child: Center(
-                    child: Text('No homework assigned yet.', style: TextStyle(color: Colors.grey)),
-                  ),
-                ),
+                _buildHistoryTableHeader(),
+                const Divider(height: 1),
+                const Padding(padding: EdgeInsets.symmetric(vertical: 48.0), child: Center(child: Text('No homework matches the selected filter.', style: TextStyle(color: Colors.grey)))),
               ],
             );
           }
@@ -342,25 +411,30 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
           return Column(
             children: [
               _buildHistoryTableHeader(),
-              const Divider(height:1),
+              const Divider(height: 1),
               ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: homeworks.length,
                 separatorBuilder: (context, index) => const Divider(height: 1),
                 itemBuilder: (context, index) {
-                  final hw = homeworks[index].data() as Map<String, dynamic>;
-                  final assignedOn = (hw['createdAt'] as Timestamp).toDate();
+                  final hw = homeworks[index].data() as Map<String, dynamic>?;
+                  final title = hw?['title'] as String? ?? 'N/A';
+                  final className = hw?['class'] as String? ?? 'N/A';
+                  final section = hw?['section'] as String? ?? '';
+                  final dueDate = hw?['dueDate'] as String? ?? 'N/A';
+                  final createdAt = hw?['createdAt'] as Timestamp?;
+                  final assignedOn = createdAt?.toDate();
 
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(flex: 3, child: Text(hw['title'] ?? 'N/A')),
-                        Expanded(flex: 2, child: Text('${hw['class']}-${hw['section']}')),
-                        Expanded(flex: 2, child: Text(hw['dueDate'] ?? 'N/A')),
-                        Expanded(flex: 2, child: Text(DateFormat('dd MMM, yyyy').format(assignedOn))),
+                        Expanded(flex: 3, child: Text(title)),
+                        Expanded(flex: 2, child: Center(child: Text('$className-$section'))),
+                        Expanded(flex: 2, child: Center(child: Text(dueDate))),
+                        Expanded(flex: 2, child: Center(child: Text(assignedOn != null ? DateFormat('dd MMM').format(assignedOn) : 'N/A'))),
                       ],
                     ),
                   );
@@ -372,17 +446,17 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
       ),
     );
   }
-  
-   Widget _buildHistoryTableHeader() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+
+  Widget _buildHistoryTableHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(flex: 3, child: Text('Title', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
-          Expanded(flex: 2, child: Text('Class', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
-          Expanded(flex: 2, child: Text('Due Date', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
-          Expanded(flex: 2, child: Text('Assigned On', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
+        children: const [
+          Expanded(flex: 3, child: Text('Title', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54))),
+          Expanded(flex: 2, child: Center(child: Text('Class', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)))),
+          Expanded(flex: 2, child: Center(child: Text('Due Date', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)))),
+          Expanded(flex: 2, child: Center(child: Text('Assigned', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)))),
         ],
       ),
     );
