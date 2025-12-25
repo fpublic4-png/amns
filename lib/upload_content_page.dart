@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -52,14 +53,14 @@ class _UploadContentPageState extends State<UploadContentPage>
         controller: _tabController,
         children: const [
           UploadLectureView(),
-          UploadMaterialView(), // Replaced placeholder
+          UploadMaterialView(), // This remains as is
         ],
       ),
     );
   }
 }
 
-// Renamed and kept for the first tab
+// New implementation for the "Upload Lectures" tab
 class UploadLectureView extends StatefulWidget {
   const UploadLectureView({super.key});
 
@@ -68,26 +69,249 @@ class UploadLectureView extends StatefulWidget {
 }
 
 class _UploadLectureViewState extends State<UploadLectureView> {
+  final _formKey = GlobalKey<FormState>();
+
+  // Form controllers
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _videoUrlController = TextEditingController();
+
+  // State for dropdowns
+  String? _selectedClassSection;
+  String? _selectedSubject;
+  String? _selectedChapterId;
+  String? _teacherId;
+
+  // Data for dropdowns
+  List<String> _classSections = [];
+  List<String> _subjects = [];
+  List<DropdownMenuItem<String>> _chapterItems = [];
+  
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTeacherData();
+  }
+  
+    @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _videoUrlController.dispose();
+    super.dispose();
+  }
+
+
+  Future<void> _loadTeacherData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userEmail = prefs.getString('userEmail');
+    if (userEmail == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    final teacherQuery = await FirebaseFirestore.instance.collection('teachers').where('email', isEqualTo: userEmail).limit(1).get();
+
+    if (teacherQuery.docs.isNotEmpty) {
+      final teacherDoc = teacherQuery.docs.first;
+      final teacherData = teacherDoc.data();
+
+      final classSections = <String>[];
+      if (teacherData['classes_taught'] is Map) {
+        (teacherData['classes_taught'] as Map).forEach((className, sections) {
+          if (sections is List) {
+            for (var section in sections) {
+              classSections.add('$className-$section');
+            }
+          }
+        });
+      }
+      
+      final subjects = teacherData['subjects'] != null ? List<String>.from(teacherData['subjects']) : <String>[];
+      
+      if(mounted) {
+        setState(() {
+          _teacherId = teacherDoc.id;
+          _classSections = classSections;
+          _subjects = subjects;
+          _isLoading = false;
+        });
+      }
+    } else {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadChapters() async {
+    if (_selectedClassSection == null || _selectedSubject == null) return;
+    final parts = _selectedClassSection!.split('-');
+    final chaptersQuery = await FirebaseFirestore.instance
+        .collection('chapters')
+        .where('class', isEqualTo: parts[0])
+        .where('section', isEqualTo: parts.length > 1 ? parts[1] : '')
+        .where('subject', isEqualTo: _selectedSubject)
+        .get();
+    
+    final items = chaptersQuery.docs.map((doc) => DropdownMenuItem(value: doc.id, child: Text(doc['title']))).toList();
+    
+    if(mounted) {
+      setState(() {
+        _chapterItems = items;
+        _selectedChapterId = null;
+      });
+    }
+  }
+
+  Future<void> _uploadLecture() async {
+    if (!_formKey.currentState!.validate()) return;
+    if(_teacherId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not identify the teacher. Please re-login.'), backgroundColor: Colors.red));
+      return;
+    }
+
+    final parts = _selectedClassSection!.split('-');
+    final data = {
+        'title': _titleController.text,
+        'description': _descriptionController.text,
+        'videoUrl': _videoUrlController.text,
+        'class': parts[0],
+        'section': parts.length > 1 ? parts[1] : '',
+        'subject': _selectedSubject,
+        'chapterId': _selectedChapterId,
+        'teacherId': _teacherId,
+        'createdAt': FieldValue.serverTimestamp(),
+    };
+
+    await FirebaseFirestore.instance.collection('lectures').add(data);
+    
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lecture uploaded successfully!'), backgroundColor: Colors.green));
+    
+    // Reset form state
+    _formKey.currentState?.reset();
+    _titleController.clear();
+    _descriptionController.clear();
+    _videoUrlController.clear();
+    setState(() {
+        _selectedClassSection = null;
+        _selectedSubject = null;
+        _selectedChapterId = null;
+        _chapterItems = [];
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Under construction 🚧',
-        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.orangeAccent),
-      ),
+    return _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.1), blurRadius: 10, offset: const Offset(0,5))],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Upload New Lecture', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    const Text('Provide a YouTube link and details for your lecture.', style: TextStyle(color: Colors.grey)),
+                    const SizedBox(height: 24),
+                    _buildTextField(_titleController, 'Lecture Title', 'e.g., Introduction to Algebra'),
+                    const SizedBox(height: 16),
+                    _buildTextField(_descriptionController, 'Description', 'Briefly describe the lecture content...', maxLines: 3),
+                    const SizedBox(height: 16),
+                    _buildTextField(_videoUrlController, 'YouTube Video URL', 'https://www.youtube.com/watch?v=...'),
+                    const SizedBox(height: 16),
+                    _buildDropdown('Class & Section', _selectedClassSection, _classSections, (val) { 
+                      setState(() { 
+                        _selectedClassSection = val; 
+                        _selectedSubject = null; 
+                        _selectedChapterId = null; 
+                        _chapterItems = []; 
+                      }); 
+                    }, 'Select a class'),
+                    const SizedBox(height: 16),
+                    _buildDropdown('Subject', _selectedSubject, _subjects, (val) { 
+                      setState(() { 
+                        _selectedSubject = val; 
+                        _selectedChapterId = null; 
+                        _loadChapters(); 
+                      }); 
+                    }, 'Select Subject'),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: _selectedChapterId,
+                      items: _chapterItems,
+                      onChanged: (val) => setState(() => _selectedChapterId = val),
+                      hint: const Text('Select Chapter'),
+                      decoration: _inputDecoration(),
+                      validator: (val) => val == null ? 'Please select a chapter' : null,
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _uploadLecture,
+                        icon: const Icon(Icons.cloud_upload_outlined),
+                        label: const Text('Upload Lecture'),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      ),
+                    )
+                  ],
+                ),
+              ),
+            ),
+          );
+  }
+
+  Widget _buildTextField(TextEditingController controller, String label, String hint, {int? maxLines}) {
+    return TextFormField(
+      controller: controller,
+      decoration: _inputDecoration(label: label, hint: hint),
+      maxLines: maxLines,
+      validator: (val) => (val == null || val.isEmpty) ? 'Please enter a $label' : null,
+    );
+  }
+
+  Widget _buildDropdown(String label, String? value, List<String> items, Function(String?) onChanged, String hint) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      items: items.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(),
+      onChanged: onChanged,
+      hint: Text(hint),
+      decoration: _inputDecoration(label: label),
+      validator: (val) => val == null ? 'Please select a $label' : null,
+    );
+  }
+
+  InputDecoration _inputDecoration({String? label, String? hint}) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      filled: true,
+      fillColor: Colors.grey[50],
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey[200]!)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.green)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     );
   }
 }
 
-// New Widget for the "Upload Materials" tab
+// The existing UploadMaterialView remains unchanged
 class UploadMaterialView extends StatefulWidget {
   const UploadMaterialView({super.key});
 
   @override
   _UploadMaterialViewState createState() => _UploadMaterialViewState();
 }
-
 class Question {
   String text;
   String type; // 'Objective' or 'Subjective'
@@ -195,7 +419,7 @@ class _UploadMaterialViewState extends State<UploadMaterialView> {
     final chaptersQuery = await FirebaseFirestore.instance
         .collection('chapters')
         .where('class', isEqualTo: parts[0])
-        .where('section', isEqualTo: parts[1])
+        .where('section', isEqualTo: parts.length > 1 ? parts[1] : '')
         .where('subject', isEqualTo: _selectedSubject)
         .get();
     
@@ -253,7 +477,7 @@ class _UploadMaterialViewState extends State<UploadMaterialView> {
         'title': _titleController.text,
         'materialType': _selectedMaterialType,
         'class': parts[0],
-        'section': parts[1],
+        'section': parts.length > 1 ? parts[1] : '',
         'subject': _selectedSubject,
         'chapterId': _selectedChapterId,
         'teacherId': _teacherId,
@@ -329,7 +553,7 @@ class _UploadMaterialViewState extends State<UploadMaterialView> {
           _buildDropdown('Subject', _selectedSubject, _subjects, (val) { setState(() { _selectedSubject = val; _selectedChapterId=null; _loadChapters(); }); }, 'Select Subject'),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            initialValue: _selectedChapterId,
+            value: _selectedChapterId,
             items: _chapterItems,
             onChanged: (val) => setState(() => _selectedChapterId = val),
             hint: const Text('Select Chapter'),
@@ -380,7 +604,7 @@ class _UploadMaterialViewState extends State<UploadMaterialView> {
               _buildTextField(_questionTextController, '', 'Type the question text here...'),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                initialValue: _newQuestionType,
+                value: _newQuestionType,
                 items: ['Objective', 'Subjective'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                 onChanged: (val) => setState(() => _newQuestionType = val!),
                 decoration: _inputDecoration(hint: 'Select Question Type'),
@@ -471,8 +695,9 @@ class _UploadMaterialViewState extends State<UploadMaterialView> {
       child: StreamBuilder<QuerySnapshot>(
         stream: _materialsStream,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: Padding(padding: EdgeInsets.all(24.0), child: CircularProgressIndicator()));
-          if (snapshot.data!.docs.isEmpty) return const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 48.0), child: Text('No materials uploaded yet.', style: TextStyle(color: Colors.grey))));
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: Padding(padding: EdgeInsets.all(24.0), child: CircularProgressIndicator()));
+          if (snapshot.hasError) return Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 48.0), child: Text("Error: ${snapshot.error}")));
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 48.0), child: Text('No materials uploaded yet.', style: TextStyle(color: Colors.grey))));
 
           return ListView.separated(
             shrinkWrap: true,
@@ -504,9 +729,9 @@ class _UploadMaterialViewState extends State<UploadMaterialView> {
 
   Widget _buildDropdown(String label, String? value, List<String> items, Function(String?) onChanged, String hint) {
     return DropdownButtonFormField<String>(
-      initialValue: value,
+      value: value,
       items: items.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(),
-      onChanged: (val) => onChanged(val),
+      onChanged: onChanged,
       hint: Text(hint),
       decoration: _inputDecoration(label: label),
       validator: (val) => val == null ? 'Please select a $label' : null,
