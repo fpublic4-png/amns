@@ -68,90 +68,15 @@ class UploadLectureView extends StatefulWidget {
 }
 
 class _UploadLectureViewState extends State<UploadLectureView> {
-  // State and methods for Upload Lecture are unchanged...
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _videoUrlController = TextEditingController();
-
-  String? _selectedClassSection;
-  String? _selectedSubject;
-  String? _selectedChapterId;
-  String? _teacherId;
-
-  List<String> _classSections = [];
-  List<String> _subjects = [];
-  final List<DropdownMenuItem<String>> _chapterItems = [];
-
-  bool _isLoading = true;
-  Stream<QuerySnapshot>? _lecturesStream;
-
-   @override
-  void initState() {
-    super.initState();
-    _loadTeacherData();
-  }
-
-  Future<void> _loadTeacherData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userEmail = prefs.getString('userEmail');
-    if (userEmail == null) {
-      if(mounted) setState(() => _isLoading = false);
-      return;
-    }
-
-    final teacherQuery = await FirebaseFirestore.instance
-        .collection('teachers')
-        .where('email', isEqualTo: userEmail)
-        .limit(1)
-        .get();
-
-    if (teacherQuery.docs.isNotEmpty) {
-      final teacherDoc = teacherQuery.docs.first;
-      final teacherData = teacherDoc.data();
-
-      final List<String> classSections = [];
-      if (teacherData['classes_taught'] is Map) {
-        (teacherData['classes_taught'] as Map).forEach((className, sections) {
-          if (sections is List) {
-            for (var section in sections) {
-              classSections.add('$className-$section');
-            }
-          }
-        });
-      }
-
-      final List<String> subjects = teacherData['subjects'] != null
-          ? List<String>.from(teacherData['subjects'])
-          : [];
-
-      if(mounted) {
-        setState(() {
-          _teacherId = teacherDoc.id;
-          _classSections = classSections;
-          _subjects = subjects;
-          _lecturesStream = FirebaseFirestore.instance
-              .collection('lectures')
-              .where('teacherId', isEqualTo: _teacherId)
-              .orderBy('createdAt', descending: true)
-              .snapshots();
-          _isLoading = false;
-        });
-      }
-    } else {
-      if(mounted) setState(() => _isLoading = false);
-    }
-  }
-  
-  // Omitting the rest of the UploadLectureView for brevity as it's unchanged.
 
   @override
   Widget build(BuildContext context) {
-    return _isLoading 
-      ? const Center(child: CircularProgressIndicator()) 
-      : SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Text('Upload Lecture functionality is here.'), // Placeholder
-      );
+    return const Center(
+      child: Text(
+        'Under construction 🚧',
+        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.orangeAccent),
+      ),
+    );
   }
 }
 
@@ -481,7 +406,7 @@ class _UploadMaterialViewState extends State<UploadMaterialView> {
           ),
         ),
         const SizedBox(height: 24),
-        Text('Question Set (${_questionSet.length})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Text('Question Set (${_questionSet.length})', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         Container(
           width: double.infinity,
