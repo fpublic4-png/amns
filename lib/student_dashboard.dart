@@ -7,6 +7,7 @@ import 'student_profile_page.dart';
 import 'notifications_popup.dart';
 import 'tests_page.dart'; // Import the new tests page
 import 'ai_doubt_screen.dart';
+import 'student_pyqs_page.dart'; // Import the new PYQs page
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
@@ -133,7 +134,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
       const Center(child: Text('Study Material Page')),
       Container(), // Empty container for the AI Doubt page, as we are navigating to it.
       const TestsPage(),
-      const Center(child: Text('PYQs Page')),
+      const StudentPyqsPage(), // Use the new StudentPyqsPage
     ];
 
     return Scaffold(
