@@ -74,8 +74,6 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
         if (mounted) {
           setState(() {
             _classSections = classSections;
-            // Fetch the entire collection, filtering and sorting will happen in the app.
-            // This is the most robust way to avoid any Firestore index issues.
             _homeworkStream = FirebaseFirestore.instance.collection('homework').snapshots();
             _isLoading = false;
           });
@@ -93,30 +91,15 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
     }
   }
 
-  Future<void> _selectDueDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
+  Future<void> _selectDueDate(BuildContext context, {DateTime? initialDate, ValueChanged<DateTime>? onDateSelected}) async {
+    final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDueDate ?? DateTime.now(),
+      initialDate: initialDate ?? DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2101),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Colors.green,
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
-    if (picked != null && picked != _selectedDueDate) {
-      setState(() {
-        _selectedDueDate = picked;
-        _dueDateController.text = DateFormat('yyyy-MM-dd').format(picked);
-      });
+    if (picked != null && onDateSelected != null) {
+      onDateSelected(picked);
     }
   }
 
@@ -172,6 +155,92 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
     });
   }
 
+  Future<void> _deleteHomework(String docId) async {
+    try {
+      await FirebaseFirestore.instance.collection('homework').doc(docId).delete();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Homework deleted successfully.'), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting homework: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _showEditHomeworkDialog(DocumentSnapshot hwDoc) {
+    final data = hwDoc.data() as Map<String, dynamic>?;
+    if (data == null) return;
+
+    final editFormKey = GlobalKey<FormState>();
+    final titleController = TextEditingController(text: data['title']);
+    final descController = TextEditingController(text: data['description']);
+    final dueDateController = TextEditingController(text: data['dueDate']);
+    String? classSection = '${data['class']}-${data['section']}';
+    DateTime? dueDate = DateTime.tryParse(data['dueDate']);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Homework'),
+          content: Form(
+            key: editFormKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildTextField(label: 'Title', controller: titleController, hint: 'Enter title'),
+                  const SizedBox(height: 16),
+                  _buildTextField(label: 'Description', controller: descController, hint: 'Enter description', maxLines: 3),
+                  const SizedBox(height: 16),
+                   _buildDropdown(label: 'Class', value: classSection, items: _classSections, hint: 'Select Class', onChanged: (val) => classSection = val, validator: (val) => val == null ? 'Required' : null),
+                  const SizedBox(height: 16),
+                  _buildDateField(
+                    label: 'Due Date',
+                    controller: dueDateController,
+                    onTap: () => _selectDueDate(context, initialDate: dueDate, onDateSelected: (pickedDate) {
+                      dueDate = pickedDate;
+                      dueDateController.text = DateFormat('yyyy-MM-dd').format(pickedDate);
+                    }),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                if (editFormKey.currentState?.validate() ?? false) {
+                  final parts = classSection!.split('-');
+                  try {
+                    await hwDoc.reference.update({
+                      'title': titleController.text.trim(),
+                      'description': descController.text.trim(),
+                      'class': parts[0],
+                      'section': parts.length > 1 ? parts[1] : '',
+                      'dueDate': dueDateController.text,
+                    });
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Homework updated successfully!'), backgroundColor: Colors.green),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to update: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -225,7 +294,12 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
             const SizedBox(height: 16),
             _buildDropdown(label: 'Class & Section', value: _selectedClassSection, items: _classSections, hint: 'Select a class', onChanged: (val) => setState(() => _selectedClassSection = val), validator: (val) => val == null ? 'Please select a class' : null),
             const SizedBox(height: 16),
-            _buildDateField(label: 'Due Date', controller: _dueDateController),
+            _buildDateField(label: 'Due Date', controller: _dueDateController, onTap: () => _selectDueDate(context, initialDate: _selectedDueDate, onDateSelected: (date) {
+              setState(() {
+                _selectedDueDate = date;
+                _dueDateController.text = DateFormat('yyyy-MM-dd').format(date);
+              });
+            })),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -334,7 +408,7 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
     );
   }
 
-  Widget _buildDateField({required String label, required TextEditingController controller}) {
+  Widget _buildDateField({required String label, required TextEditingController controller, VoidCallback? onTap}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -343,7 +417,7 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
         TextFormField(
           controller: controller,
           readOnly: true,
-          onTap: () => _selectDueDate(context),
+          onTap: onTap,
           decoration: InputDecoration(
             hintText: 'Pick a date',
             prefixIcon: const Icon(Icons.calendar_today_outlined, color: Colors.grey),
@@ -384,14 +458,11 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
             );
           }
 
-          // CLIENT-SIDE FILTERING AND SORTING
-          // 1. Filter by the current teacher ID
           var allHomework = snapshot.data!.docs.where((doc) {
             final data = doc.data() as Map<String, dynamic>?;
             return data?['teacherId'] == _teacherId;
           }).toList();
 
-          // 2. Sort documents by 'createdAt' on the client-side
           allHomework.sort((a, b) {
             final aData = a.data() as Map<String, dynamic>?;
             final bData = b.data() as Map<String, dynamic>?;
@@ -399,10 +470,9 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
             final bTimestamp = bData?['createdAt'] as Timestamp?;
             if (bTimestamp == null) return -1;
             if (aTimestamp == null) return 1;
-            return bTimestamp.compareTo(aTimestamp); // For descending order
+            return bTimestamp.compareTo(aTimestamp);
           });
 
-          // 3. Apply the UI filters
           final filteredHomework = allHomework.where((doc) {
             final data = doc.data() as Map<String, dynamic>?;
             final classMatch = _filterClassSection == null || '${data?['class']}-${data?['section']}' == _filterClassSection;
@@ -436,23 +506,25 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
                 itemCount: filteredHomework.length,
                 separatorBuilder: (context, index) => const Divider(height: 1),
                 itemBuilder: (context, index) {
-                  final hw = filteredHomework[index].data() as Map<String, dynamic>?;
+                  final doc = filteredHomework[index];
+                  final hw = doc.data() as Map<String, dynamic>?;
                   final title = hw?['title'] as String? ?? 'N/A';
                   final className = hw?['class'] as String? ?? 'N/A';
                   final section = hw?['section'] as String? ?? '';
                   final dueDate = hw?['dueDate'] as String? ?? 'N/A';
-                  final createdAt = hw?['createdAt'] as Timestamp?;
-                  final assignedOn = createdAt?.toDate();
-
+                  
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(flex: 3, child: Text(title)),
                         Expanded(flex: 2, child: Center(child: Text('$className-$section'))),
                         Expanded(flex: 2, child: Center(child: Text(dueDate))),
-                        Expanded(flex: 2, child: Center(child: Text(assignedOn != null ? DateFormat('dd MMM').format(assignedOn) : 'N/A'))),
+                        Expanded(flex: 2, child: Row( mainAxisAlignment: MainAxisAlignment.center, children: [ 
+                          IconButton(icon: const Icon(Icons.edit, color: Colors.blueGrey, size: 20), tooltip: 'Edit', onPressed: () => _showEditHomeworkDialog(doc)),
+                          IconButton(icon: const Icon(Icons.delete, color: Colors.redAccent, size: 20), tooltip: 'Delete', onPressed: () => _deleteHomework(doc.id)),
+                         ],),),
                       ],
                     ),
                   );
@@ -474,7 +546,7 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
           Expanded(flex: 3, child: Text('Title', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54))),
           Expanded(flex: 2, child: Center(child: Text('Class', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)))),
           Expanded(flex: 2, child: Center(child: Text('Due Date', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)))),
-          Expanded(flex: 2, child: Center(child: Text('Assigned', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)))),
+          Expanded(flex: 2, child: Center(child: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)))),
         ],
       ),
     );

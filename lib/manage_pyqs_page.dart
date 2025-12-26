@@ -89,8 +89,6 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
           setState(() {
             _classSections = classSections;
             _subjects = subjects;
-            // Fetch the entire collection, filtering and sorting will happen in the app.
-            // This is the most robust way to avoid any Firestore index issues.
             _pyqsStream = FirebaseFirestore.instance.collection('pyqs').snapshots();
             _isLoading = false;
           });
@@ -159,6 +157,85 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
       _filterSubject = null;
     });
   }
+
+  Future<void> _deletePyq(String docId) async {
+    try {
+      await FirebaseFirestore.instance.collection('pyqs').doc(docId).delete();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PYQ deleted successfully.'), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting PYQ: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _showEditPyqDialog(DocumentSnapshot pyqDoc) {
+    final data = pyqDoc.data() as Map<String, dynamic>?;
+    if (data == null) return;
+
+    final editFormKey = GlobalKey<FormState>();
+    String? year = data['year'];
+    String? classSection = '${data['class']}-${data['section']}';
+    String? subject = data['subject'];
+    final linkController = TextEditingController(text: data['googleDriveLink']);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit PYQ'),
+          content: Form(
+            key: editFormKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                   _buildDropdown(label: 'Year', value: year, items: _years, hint: 'Select Year', onChanged: (val) => year = val, validator: (val) => val == null ? 'Required' : null),
+                   const SizedBox(height: 16),
+                   _buildDropdown(label: 'Class', value: classSection, items: _classSections, hint: 'Select Class', onChanged: (val) => classSection = val, validator: (val) => val == null ? 'Required' : null),
+                   const SizedBox(height: 16),
+                   _buildDropdown(label: 'Subject', value: subject, items: _subjects, hint: 'Select Subject', onChanged: (val) => subject = val, validator: (val) => val == null ? 'Required' : null),
+                   const SizedBox(height: 16),
+                  _buildTextField(label: 'Google Drive Link', controller: linkController, hint: 'https://...'),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                if (editFormKey.currentState?.validate() ?? false) {
+                  final parts = classSection!.split('-');
+                  try {
+                    await pyqDoc.reference.update({
+                      'year': year,
+                      'class': parts[0],
+                      'section': parts.length > 1 ? parts[1] : '',
+                      'subject': subject,
+                      'googleDriveLink': linkController.text.trim(),
+                    });
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('PYQ updated successfully!'), backgroundColor: Colors.green),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to update: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -394,14 +471,11 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
             );
           }
 
-          // CLIENT-SIDE FILTERING AND SORTING
-          // 1. Filter by the current teacher ID
           var allPyqs = snapshot.data!.docs.where((doc) {
              final data = doc.data() as Map<String, dynamic>?;
              return data?['teacherId'] == _teacherId;
           }).toList();
 
-          // 2. Sort documents by 'createdAt' on the client-side
           allPyqs.sort((a, b) {
             final aData = a.data() as Map<String, dynamic>?;
             final bData = b.data() as Map<String, dynamic>?;
@@ -409,10 +483,9 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
             final bTimestamp = bData?['createdAt'] as Timestamp?;
             if (bTimestamp == null) return -1;
             if (aTimestamp == null) return 1;
-            return bTimestamp.compareTo(aTimestamp); // For descending order
+            return bTimestamp.compareTo(aTimestamp); 
           });
           
-          // 3. Apply the UI filters
           final filteredPyqs = allPyqs.where((doc) {
             final data = doc.data() as Map<String, dynamic>?;
             final classMatch = _filterClassSection == null || '${data?['class']}-${data?['section']}' == _filterClassSection;
@@ -447,7 +520,8 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
                 itemCount: filteredPyqs.length,
                 separatorBuilder: (context, index) => const Divider(height: 1),
                 itemBuilder: (context, index) {
-                  final data = filteredPyqs[index].data() as Map<String, dynamic>?;
+                  final doc = filteredPyqs[index];
+                  final data = doc.data() as Map<String, dynamic>?;
                   final year = data?['year'] as String? ?? 'N/A';
                   final className = data?['class'] as String? ?? 'N/A';
                   final section = data?['section'] as String? ?? '';
@@ -455,7 +529,7 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
                   final link = data?['googleDriveLink'] as String?;
 
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -466,10 +540,7 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
                           flex: 1,
                           child: Center(
                             child: link != null && link.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.open_in_new, color: Colors.blue, size: 20),
-                                    tooltip: 'Open Link',
-                                    onPressed: () async {
+                                ? IconButton( icon: const Icon(Icons.open_in_new, color: Colors.blue, size: 20), tooltip: 'Open Link', onPressed: () async {
                                       final uri = Uri.tryParse(link);
                                       if (uri != null && await canLaunchUrl(uri)) {
                                         await launchUrl(uri);
@@ -483,6 +554,10 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
                                 : const Icon(Icons.link_off, color: Colors.grey, size: 20),
                           ),
                         ),
+                        Expanded(flex: 2, child: Row( mainAxisAlignment: MainAxisAlignment.center, children: [ 
+                          IconButton(icon: const Icon(Icons.edit, color: Colors.blueGrey, size: 20), tooltip: 'Edit', onPressed: () => _showEditPyqDialog(doc)),
+                          IconButton(icon: const Icon(Icons.delete, color: Colors.redAccent, size: 20), tooltip: 'Delete', onPressed: () => _deletePyq(doc.id)),
+                         ],),),
                       ],
                     ),
                   );
@@ -505,6 +580,7 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
           Expanded(flex: 3, child: Center(child: Text('Class', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)))),
           Expanded(flex: 3, child: Center(child: Text('Subject', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)))),
           Expanded(flex: 1, child: Center(child: Text('Link', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)))),
+          Expanded(flex: 2, child: Center(child: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)))),
         ],
       ),
     );

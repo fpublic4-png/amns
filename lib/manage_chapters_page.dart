@@ -1,4 +1,3 @@
-import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,33 +6,41 @@ class ManageChaptersPage extends StatefulWidget {
   const ManageChaptersPage({super.key});
 
   @override
-  State<ManageChaptersPage> createState() => _ManageChaptersPageState();
+  _ManageChaptersPageState createState() => _ManageChaptersPageState();
 }
 
 class _ManageChaptersPageState extends State<ManageChaptersPage> {
   final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  String? _selectedClassSection;
+  final _chapterNameController = TextEditingController();
+  String? _selectedClass;
   String? _selectedSubject;
+  String? _teacherId;
 
-  late Future<Map<String, dynamic>> _initializationFuture;
+  List<String> _classes = [];
+  List<String> _subjects = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _initializationFuture = _initializePageData();
+    _loadTeacherData();
   }
 
-  Future<Map<String, dynamic>> _initializePageData() async {
+  @override
+  void dispose() {
+    _chapterNameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadTeacherData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userEmail = prefs.getString('userEmail');
+    if (userEmail == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userEmail = prefs.getString('userEmail');
-      developer.log('Initializing page data for user: $userEmail', name: 'ManageChaptersPage');
-
-      if (userEmail == null || userEmail.isEmpty) {
-        throw Exception('User email is not set in preferences.');
-      }
-
       final teacherQuery = await FirebaseFirestore.instance
           .collection('teachers')
           .where('email', isEqualTo: userEmail)
@@ -42,73 +49,131 @@ class _ManageChaptersPageState extends State<ManageChaptersPage> {
 
       if (teacherQuery.docs.isNotEmpty) {
         final teacherDoc = teacherQuery.docs.first;
-        final teacherId = teacherDoc.id;
+        _teacherId = teacherDoc.id;
         final teacherData = teacherDoc.data();
-        developer.log('Found teacher ID: $teacherId', name: 'ManageChaptersPage');
 
-        final List<String> classSections = [];
-        if (teacherData['classes_taught'] is Map) {
-          (teacherData['classes_taught'] as Map).forEach((className, sections) {
-            if (sections is List) {
-              for (var section in sections) {
-                classSections.add('$className-$section');
-              }
-            }
-          });
-        }
+        final List<String> loadedClasses = teacherData['classes_taught'] is Map
+            ? List<String>.from((teacherData['classes_taught'] as Map).keys)
+            : [];
+        final List<String> loadedSubjects = teacherData['subjects'] != null
+            ? List<String>.from(teacherData['subjects'])
+            : [];
 
-        final List<String> subjects = teacherData['subjects'] != null ? List<String>.from(teacherData['subjects']) : [];
-        
-        // TEMPORARY FIX: Removed .orderBy('createdAt', descending: true)
-        final chaptersStream = FirebaseFirestore.instance
-            .collection('chapters')
-            .where('teacherId', isEqualTo: teacherId)
-            .snapshots();
-
-        return {
-          'teacherId': teacherId,
-          'classSections': classSections,
-          'subjects': subjects,
-          'chaptersStream': chaptersStream,
-        };
+        setState(() {
+          _classes = loadedClasses;
+          _subjects = loadedSubjects;
+          _isLoading = false;
+        });
       } else {
-        throw Exception('Logged-in user is not a registered teacher.');
+        setState(() => _isLoading = false);
       }
-    } catch (e, s) {
-      developer.log('Error initializing page data', name: 'ManageChaptersPage', error: e, stackTrace: s);
-      throw Exception('Failed to load page data: $e');
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading data: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 
-  Future<void> _addChapter(String teacherId) async {
-    if (!_formKey.currentState!.validate()) {
-      return;
+  Future<void> _addChapter() async {
+    if (_formKey.currentState?.validate() ?? false) {
+      try {
+        await FirebaseFirestore.instance.collection('chapters').add({
+          'name': _chapterNameController.text.trim(),
+          'class': _selectedClass,
+          'subject': _selectedSubject,
+          'teacherId': _teacherId,
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Chapter added successfully!'), backgroundColor: Colors.green),
+        );
+
+        _chapterNameController.clear();
+        setState(() {
+          _selectedClass = null;
+          _selectedSubject = null;
+        });
+        _formKey.currentState?.reset();
+        FocusScope.of(context).unfocus();
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to add chapter: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
-
-    final parts = _selectedClassSection!.split('-');
-    await FirebaseFirestore.instance.collection('chapters').add({
-      'title': _titleController.text.trim(),
-      'class': parts[0],
-      'section': parts[1],
-      'subject': _selectedSubject,
-      'teacherId': teacherId,
-      'createdAt': Timestamp.now(),
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Chapter added!'), backgroundColor: Colors.green));
-    _formKey.currentState!.reset();
-    _titleController.clear();
-    setState(() {
-      _selectedClassSection = null;
-      _selectedSubject = null;
-    });
-    FocusScope.of(context).unfocus();
   }
-  
-  void _refreshData() {
-    setState(() {
-        _initializationFuture = _initializePageData();
-    });
+
+  Future<void> _deleteChapter(String docId) async {
+    try {
+      await FirebaseFirestore.instance.collection('chapters').doc(docId).delete();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chapter deleted successfully.'), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting chapter: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _showEditChapterDialog(DocumentSnapshot chapterDoc) {
+    final data = chapterDoc.data() as Map<String, dynamic>?;
+    if (data == null) return;
+
+    final editFormKey = GlobalKey<FormState>();
+    final nameController = TextEditingController(text: data['name']);
+    String? className = data['class'];
+    String? subject = data['subject'];
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Chapter'),
+          content: Form(
+            key: editFormKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildTextField(label: 'Chapter Name', controller: nameController, hint: 'Enter chapter name'),
+                  const SizedBox(height: 16),
+                  _buildDropdown(label: 'Class', value: className, items: _classes, hint: 'Select Class', onChanged: (val) => className = val, validator: (val) => val == null ? 'Required' : null),
+                  const SizedBox(height: 16),
+                  _buildDropdown(label: 'Subject', value: subject, items: _subjects, hint: 'Select Subject', onChanged: (val) => subject = val, validator: (val) => val == null ? 'Required' : null),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                if (editFormKey.currentState?.validate() ?? false) {
+                  try {
+                    await chapterDoc.reference.update({
+                      'name': nameController.text.trim(),
+                      'class': className,
+                      'subject': subject,
+                    });
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Chapter updated successfully!'), backgroundColor: Colors.green),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to update chapter: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -116,178 +181,177 @@ class _ManageChaptersPageState extends State<ManageChaptersPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0FAF6),
       appBar: AppBar(
+        title: const Text('Manage Chapters', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Manage Chapters', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _initializationFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.green)));
-          }
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.green)))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildChapterForm(),
+                  const SizedBox(height: 32),
+                  const Text('Chapter List', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87)),
+                  const SizedBox(height: 16),
+                  _buildChapterList(),
+                ],
               ),
-            );
-          }
-
-          final data = snapshot.data!;
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 16),
-                _buildAddChapterCard(data['teacherId'], data['classSections'], data['subjects']),
-                const SizedBox(height: 32),
-                _buildChapterList(data['chaptersStream']),
-                const SizedBox(height: 24),
-              ],
             ),
-          );
-        },
-      ),
     );
   }
 
-  Widget _buildAddChapterCard(String teacherId, List<String> classSections, List<String> subjects) {
-     return Container(
+  Widget _buildChapterForm() {
+    return Container(
+      padding: const EdgeInsets.all(24.0),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))]
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Add New Chapter', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              const Text('Define a new chapter for a specific class and subject.', style: TextStyle(color: Colors.grey, fontSize: 12)),
-              const SizedBox(height: 24),
-              const Text('Chapter Title', style: TextStyle(fontWeight: FontWeight.w500)),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(hintText: 'e.g., The Living World', border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'Please enter a title' : null,
-              ),
-              const SizedBox(height: 16),
-              const Text('Class', style: TextStyle(fontWeight: FontWeight.w500)),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedClassSection,
-                decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
-                items: classSections.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
-                onChanged: (newValue) => setState(() => _selectedClassSection = newValue),
-                hint: const Text('Select Class'),
-                validator: (value) => value == null ? 'Please select a class' : null,
-              ),
-              const SizedBox(height: 16),
-              const Text('Subject', style: TextStyle(fontWeight: FontWeight.w500)),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedSubject,
-                decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
-                items: subjects.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
-                onChanged: (newValue) => setState(() => _selectedSubject = newValue),
-                hint: const Text('Select Subject'),
-                validator: (value) => value == null ? 'Please select a subject' : null,
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => _addChapter(teacherId),
-                  icon: const Icon(Icons.add_circle_outline, size: 18),
-                  label: const Text('Add Chapter'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Add New Chapter', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 24),
+            _buildDropdown(label: 'Class', value: _selectedClass, items: _classes, hint: 'Select Class', onChanged: (val) => setState(() => _selectedClass = val), validator: (val) => val == null ? 'Please select a class' : null),
+            const SizedBox(height: 16),
+            _buildDropdown(label: 'Subject', value: _selectedSubject, items: _subjects, hint: 'Select Subject', onChanged: (val) => setState(() => _selectedSubject = val), validator: (val) => val == null ? 'Please select a subject' : null),
+            const SizedBox(height: 16),
+            _buildTextField(label: 'Chapter Name', controller: _chapterNameController, hint: 'e.g., Introduction to Algebra'),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _addChapter,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add Chapter'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildChapterList(Stream<QuerySnapshot> chaptersStream) {
+  Widget _buildTextField({required String label, required TextEditingController controller, required String hint}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Chapter List', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87)),
-        const SizedBox(height: 16),
-        Container(
-           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))]
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black87)),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          decoration: InputDecoration(
+            hintText: hint,
+            filled: true,
+            fillColor: const Color(0xFFF7F8F9),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
-          child: Column(
-            children: [
-               const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                child: Row(
-                  children: [
-                    Expanded(flex: 3, child: Text('Chapter Title', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
-                    Expanded(flex: 2, child: Text('Class', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
-                    Expanded(flex: 2, child: Text('Subject', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              StreamBuilder<QuerySnapshot>(
-                stream: chaptersStream,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Padding(padding: EdgeInsets.all(24.0), child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.green))));
-                  }
-                  if (snapshot.hasError) {
-                     return Padding(padding: const EdgeInsets.all(24.0), child: Center(child: Text('Error loading chapters: ${snapshot.error}', style: const TextStyle(color: Colors.red), textAlign: TextAlign.center,)));
-                  }
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 48.0),
-                        child: Text('No chapters have been created for this teacher yet.', style: TextStyle(color: Colors.grey), textAlign: TextAlign.center,),
-                      ),
-                    );
-                  }
-
-                  final chapters = snapshot.data!.docs;
-                  return ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: chapters.length,
-                    separatorBuilder: (context, index) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final chapter = chapters[index].data() as Map<String, dynamic>;
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                        child: Row(
-                          children: [
-                             Expanded(flex: 3, child: Text(chapter['title'] ?? 'No Title')),
-                             Expanded(flex: 2, child: Text('${chapter['class'] ?? ''}-${chapter['section'] ?? ''}')),
-                             Expanded(flex: 2, child: Text(chapter['subject'] ?? 'N/A')),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ],
-          ),
+          validator: (value) => (value == null || value.trim().isEmpty) ? 'This field cannot be empty' : null,
         ),
       ],
+    );
+  }
+
+  Widget _buildDropdown({required String label, String? value, required List<String> items, required String hint, required ValueChanged<String?> onChanged, FormFieldValidator<String>? validator}) {
+    final dropdownValue = value != null && items.contains(value) ? value : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black87)),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: dropdownValue,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFFF7F8F9),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          ),
+          hint: Text(hint),
+          items: items.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(),
+          onChanged: onChanged,
+          validator: validator,
+          isExpanded: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChapterList() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))],
+      ),
+      child: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('chapters')
+            .where('teacherId', isEqualTo: _teacherId)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: Padding(padding: EdgeInsets.all(48.0), child: CircularProgressIndicator()));
+          }
+          if (snapshot.hasError) {
+            return Center(child: Padding(padding: const EdgeInsets.all(20), child: Text("An error occurred.", style: const TextStyle(color: Colors.red))));
+          }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Padding(padding: EdgeInsets.all(48.0), child: Text('No chapters found.', style: TextStyle(color: Colors.grey))));
+          }
+
+          final chapters = snapshot.data!.docs;
+
+          return ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: chapters.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final doc = chapters[index];
+              final chapter = doc.data() as Map<String, dynamic>?;
+              final name = chapter?['name'] as String? ?? 'N/A';
+              final className = chapter?['class'] as String? ?? 'N/A';
+              final subject = chapter?['subject'] as String? ?? 'N/A';
+
+              return ListTile(
+                title: Text(name),
+                subtitle: Text('$className - $subject'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.blueGrey, size: 20),
+                      tooltip: 'Edit',
+                      onPressed: () => _showEditChapterDialog(doc),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.redAccent, size: 20),
+                      tooltip: 'Delete',
+                      onPressed: () => _deleteChapter(doc.id),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

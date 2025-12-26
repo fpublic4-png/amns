@@ -1,36 +1,33 @@
-import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:intl/intl.dart';
-import './create_test_page.dart';
 
 class ManageTestsPage extends StatefulWidget {
   const ManageTestsPage({super.key});
 
   @override
-  State<ManageTestsPage> createState() => _ManageTestsPageState();
+  _ManageTestsPageState createState() => _ManageTestsPageState();
 }
 
 class _ManageTestsPageState extends State<ManageTestsPage> {
-  late Future<Stream<QuerySnapshot>> _testsStreamFuture;
+  String? _teacherId;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _testsStreamFuture = _initializeStream();
+    _loadTeacherId();
   }
 
-  Future<Stream<QuerySnapshot>> _initializeStream() async {
+  Future<void> _loadTeacherId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userEmail = prefs.getString('userEmail');
+    if (userEmail == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userEmail = prefs.getString('userEmail');
-      developer.log('Initializing stream for user: $userEmail', name: 'ManageTestsPage');
-
-      if (userEmail == null || userEmail.isEmpty) {
-        throw Exception('User email is not set.');
-      }
-
       final teacherQuery = await FirebaseFirestore.instance
           .collection('teachers')
           .where('email', isEqualTo: userEmail)
@@ -38,28 +35,30 @@ class _ManageTestsPageState extends State<ManageTestsPage> {
           .get();
 
       if (teacherQuery.docs.isNotEmpty) {
-        final teacherId = teacherQuery.docs.first.id;
-        developer.log('Found teacher ID: $teacherId', name: 'ManageTestsPage');
-
-        // TEMPORARY FIX: Removed .orderBy('createdAt', descending: true)
-        return FirebaseFirestore.instance
-            .collection('tests')
-            .where('teacherId', isEqualTo: teacherId)
-            .snapshots();
-      } else {
-        throw Exception('Logged-in user is not a registered teacher.');
+        setState(() {
+          _teacherId = teacherQuery.docs.first.id;
+          _isLoading = false;
+        });
       }
-    } catch (e, s) {
-      developer.log('Error initializing stream', name: 'ManageTestsPage', error: e, stackTrace: s);
-      // Re-throw the exception to be caught by the FutureBuilder
-      throw Exception('Failed to load test history: $e');
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading data: $e'), backgroundColor: Colors.red),
+      );
     }
   }
-
-  void _refreshHistory() {
-    setState(() {
-      _testsStreamFuture = _initializeStream();
-    });
+  
+  Future<void> _deleteTest(String testId) async {
+    try {
+      await FirebaseFirestore.instance.collection('tests').doc(testId).delete();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Test deleted successfully.'), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting test: $e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   @override
@@ -71,129 +70,89 @@ class _ManageTestsPageState extends State<ManageTestsPage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateTestPage()));
-                // When returning from CreateTestPage, refresh the history
-                if (result == true || mounted) {
-                  _refreshHistory();
-                }
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _teacherId == null
+              ? const Center(child: Text('Could not identify teacher.'))
+              : _buildTestList(),
+    );
+  }
+
+  Widget _buildTestList() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('tests')
+          .where('teacherId', isEqualTo: _teacherId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return const Center(child: Text('Something went wrong.'));
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(child: Text('No tests found.', style: TextStyle(color: Colors.grey)));
+        }
+
+        final tests = snapshot.data!.docs;
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16.0),
+          itemCount: tests.length,
+          itemBuilder: (context, index) {
+            final doc = tests[index];
+            final test = doc.data() as Map<String, dynamic>?;
+
+            final testName = test?['testName'] as String? ?? 'N/A';
+            final className = test?['class'] as String? ?? 'N/A';
+            final subject = test?['subject'] as String? ?? 'N/A';
+
+            return Card(
+              elevation: 2,
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                title: Text(testName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('$className - $subject'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.redAccent),
+                  tooltip: 'Delete Test',
+                  onPressed: () => _showDeleteConfirmation(doc.id),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmation(String testId) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Test'),
+          content: const Text('Are you sure you want to delete this test? This action cannot be undone.'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+              onPressed: () {
+                _deleteTest(testId);
+                Navigator.of(context).pop();
               },
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Create New Test'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
             ),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: _buildTestHistoryCard(),
-      ),
-    );
-  }
-
-  Widget _buildTestHistoryCard() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Test History', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                SizedBox(height: 4),
-                Text('A list of tests you have created.', style: TextStyle(color: Colors.grey, fontSize: 12)),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          _buildHistoryTableHeader(),
-          const Divider(height: 1),
-          FutureBuilder<Stream<QuerySnapshot>>(
-            future: _testsStreamFuture,
-            builder: (context, futureSnapshot) {
-              if (futureSnapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(padding: EdgeInsets.symmetric(vertical: 48.0), child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.green))));
-              }
-
-              if (futureSnapshot.hasError) {
-                return Padding(padding: const EdgeInsets.symmetric(vertical: 48.0), child: Center(child: Text('${futureSnapshot.error}', style: const TextStyle(color: Colors.red), textAlign: TextAlign.center,)));
-              }
-
-              return StreamBuilder<QuerySnapshot>(
-                stream: futureSnapshot.data,
-                builder: (context, streamSnapshot) {
-                  if (streamSnapshot.connectionState == ConnectionState.waiting) {
-                    return const Padding(padding: EdgeInsets.symmetric(vertical: 48.0), child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.green))));
-                  }
-                  if (streamSnapshot.hasError) {
-                     return Padding(padding: const EdgeInsets.symmetric(vertical: 48.0), child: Center(child: Text('Error loading tests: ${streamSnapshot.error}', style: const TextStyle(color: Colors.red), textAlign: TextAlign.center,)));
-                  }
-                  if (!streamSnapshot.hasData || streamSnapshot.data!.docs.isEmpty) {
-                    return const Padding(padding: EdgeInsets.symmetric(vertical: 48.0), child: Center(child: Text('You have not created any tests yet.', style: TextStyle(color: Colors.grey))));
-                  }
-
-                  final tests = streamSnapshot.data!.docs;
-                  return ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: tests.length,
-                    separatorBuilder: (context, index) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final test = tests[index].data() as Map<String, dynamic>;
-                      final createdAt = (test['createdAt'] as Timestamp?)?.toDate();
-                      final formattedDate = createdAt != null ? DateFormat('dd MMM yyyy').format(createdAt) : 'N/A';
-                      final questionsCount = (test['questions'] as List?)?.length ?? 0;
-
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                        child: Row(
-                          children: [
-                            Expanded(flex: 3, child: Text(test['title'] ?? 'No Title')),
-                            Expanded(flex: 2, child: Text('${test['class'] ?? ''}-${test['section'] ?? ''}')),
-                            Expanded(flex: 2, child: Text(test['subject'] ?? 'N/A')),
-                            Expanded(flex: 2, child: Text(formattedDate)),
-                            Expanded(flex: 2, child: Center(child: Text(questionsCount.toString()))),
-                            Expanded(flex: 2, child: Center(child: IconButton(icon: Icon(Icons.more_horiz, color: Colors.grey[600]), onPressed: () {}))),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHistoryTableHeader() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-      child: Row(
-        children: [
-          Expanded(flex: 3, child: Text('Title', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
-          Expanded(flex: 2, child: Text('Class', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
-          Expanded(flex: 2, child: Text('Subject', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
-          Expanded(flex: 2, child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
-          Expanded(flex: 2, child: Center(child: Text('Questions', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)))),
-          Expanded(flex: 2, child: Center(child: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)))),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 }
