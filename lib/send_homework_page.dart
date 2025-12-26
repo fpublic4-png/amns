@@ -74,9 +74,11 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
         if (mounted) {
           setState(() {
             _classSections = classSections;
+            // Fetch the entire collection, filtering and sorting will happen in the app.
+            // This is the most robust way to avoid any Firestore index issues.
+            _homeworkStream = FirebaseFirestore.instance.collection('homework').snapshots();
             _isLoading = false;
           });
-          _updateHomeworkStream();
         }
       } else {
         if (mounted) setState(() => _isLoading = false);
@@ -89,28 +91,6 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
         );
       }
     }
-  }
-
-  void _updateHomeworkStream() {
-    if (_teacherId == null) return;
-
-    Query query = FirebaseFirestore.instance
-        .collection('homework')
-        .where('teacherId', isEqualTo: _teacherId);
-
-    if (_filterClassSection != null) {
-      final parts = _filterClassSection!.split('-');
-      query = query.where('class', isEqualTo: parts[0]);
-      if (parts.length > 1) {
-        query = query.where('section', isEqualTo: parts[1]);
-      }
-    }
-
-    query = query.orderBy('createdAt', descending: true);
-
-    setState(() {
-      _homeworkStream = query.snapshots();
-    });
   }
 
   Future<void> _selectDueDate(BuildContext context) async {
@@ -142,7 +122,7 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
 
   Future<void> _sendHomework() async {
     if (_formKey.currentState?.validate() ?? false) {
-       if (_selectedClassSection == null) {
+      if (_selectedClassSection == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please select a class.'), backgroundColor: Colors.red),
         );
@@ -179,7 +159,7 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
         }
         FocusScope.of(context).unfocus();
       } catch (e) {
-         ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to send homework: $e'), backgroundColor: Colors.red),
         );
       }
@@ -190,7 +170,6 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
     setState(() {
       _filterClassSection = null;
     });
-    _updateHomeworkStream();
   }
 
   @override
@@ -287,10 +266,7 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
             value: _filterClassSection,
             items: _classSections,
             hint: 'All Classes',
-            onChanged: (value) {
-              setState(() => _filterClassSection = value);
-              _updateHomeworkStream();
-            },
+            onChanged: (value) => setState(() => _filterClassSection = value),
           ),
           const SizedBox(height: 16),
           Align(
@@ -333,13 +309,15 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
   }
 
   Widget _buildDropdown({required String label, String? value, required List<String> items, required String hint, required ValueChanged<String?> onChanged, FormFieldValidator<String>? validator}) {
+    final dropdownValue = value != null && items.contains(value) ? value : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black87)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          initialValue: value,
+          value: dropdownValue,
           decoration: InputDecoration(
             filled: true,
             fillColor: const Color(0xFFF7F8F9),
@@ -394,19 +372,59 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
             return const Padding(padding: EdgeInsets.all(48.0), child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.green))));
           }
           if (snapshot.hasError) {
-            return Center(child: Padding(padding: const EdgeInsets.all(20), child: Text("Error: ${snapshot.error}", style: const TextStyle(color: Colors.red))));
+            return Center(child: Padding(padding: const EdgeInsets.all(20), child: Text("An error occurred: ${snapshot.error}", style: const TextStyle(color: Colors.red))));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Column(
               children: [
                 _buildHistoryTableHeader(),
                 const Divider(height: 1),
-                const Padding(padding: EdgeInsets.symmetric(vertical: 48.0), child: Center(child: Text('No homework matches the selected filter.', style: TextStyle(color: Colors.grey)))),
+                const Padding(padding: EdgeInsets.symmetric(vertical: 48.0), child: Center(child: Text('You have not assigned any homework yet.', style: TextStyle(color: Colors.grey)))),
               ],
             );
           }
 
-          final homeworks = snapshot.data!.docs;
+          // CLIENT-SIDE FILTERING AND SORTING
+          // 1. Filter by the current teacher ID
+          var allHomework = snapshot.data!.docs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>?;
+            return data?['teacherId'] == _teacherId;
+          }).toList();
+
+          // 2. Sort documents by 'createdAt' on the client-side
+          allHomework.sort((a, b) {
+            final aData = a.data() as Map<String, dynamic>?;
+            final bData = b.data() as Map<String, dynamic>?;
+            final aTimestamp = aData?['createdAt'] as Timestamp?;
+            final bTimestamp = bData?['createdAt'] as Timestamp?;
+            if (bTimestamp == null) return -1;
+            if (aTimestamp == null) return 1;
+            return bTimestamp.compareTo(aTimestamp); // For descending order
+          });
+
+          // 3. Apply the UI filters
+          final filteredHomework = allHomework.where((doc) {
+            final data = doc.data() as Map<String, dynamic>?;
+            final classMatch = _filterClassSection == null || '${data?['class']}-${data?['section']}' == _filterClassSection;
+            return classMatch;
+          }).toList();
+
+          if (filteredHomework.isEmpty) {
+            return Column(
+              children: [
+                _buildHistoryTableHeader(),
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 48.0),
+                  child: Center(child: Text(
+                    _filterClassSection == null ? 'You have not assigned any homework yet.' : 'No homework matches the selected filter.',
+                    style: const TextStyle(color: Colors.grey)
+                    )
+                  ),
+                ),
+              ],
+            );
+          }
 
           return Column(
             children: [
@@ -415,10 +433,10 @@ class _SendHomeworkPageState extends State<SendHomeworkPage> {
               ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: homeworks.length,
+                itemCount: filteredHomework.length,
                 separatorBuilder: (context, index) => const Divider(height: 1),
                 itemBuilder: (context, index) {
-                  final hw = homeworks[index].data() as Map<String, dynamic>?;
+                  final hw = filteredHomework[index].data() as Map<String, dynamic>?;
                   final title = hw?['title'] as String? ?? 'N/A';
                   final className = hw?['class'] as String? ?? 'N/A';
                   final section = hw?['section'] as String? ?? '';

@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,7 +27,6 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
   bool _isLoading = true;
   Stream<QuerySnapshot>? _pyqsStream;
 
-  // New state for filtering the history
   String? _filterClassSection;
   String? _filterSubject;
 
@@ -36,7 +36,7 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
     _generateYears();
     _loadTeacherData();
   }
-
+    
   @override
   void dispose() {
     _driveLinkController.dispose();
@@ -80,18 +80,20 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
             }
           });
         }
-
+        
         final List<String> subjects = teacherData['subjects'] != null
             ? List<String>.from(teacherData['subjects'])
             : [];
-
+        
         if (mounted) {
           setState(() {
             _classSections = classSections;
             _subjects = subjects;
+            // Fetch the entire collection, filtering and sorting will happen in the app.
+            // This is the most robust way to avoid any Firestore index issues.
+            _pyqsStream = FirebaseFirestore.instance.collection('pyqs').snapshots();
             _isLoading = false;
           });
-          _updatePyqsStream();
         }
       } else {
         if (mounted) setState(() => _isLoading = false);
@@ -106,39 +108,13 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
     }
   }
 
-  void _updatePyqsStream() {
-    if (_teacherId == null) return;
-
-    Query query = FirebaseFirestore.instance
-        .collection('pyqs')
-        .where('teacherId', isEqualTo: _teacherId);
-
-    if (_filterClassSection != null) {
-      final parts = _filterClassSection!.split('-');
-      query = query.where('class', isEqualTo: parts[0]);
-      if (parts.length > 1) {
-        query = query.where('section', isEqualTo: parts[1]);
-      }
-    }
-
-    if (_filterSubject != null) {
-      query = query.where('subject', isEqualTo: _filterSubject);
-    }
-
-    query = query.orderBy('createdAt', descending: true);
-
-    setState(() {
-      _pyqsStream = query.snapshots();
-    });
-  }
-
   Future<void> _savePyqLink() async {
     if (_formKey.currentState?.validate() ?? false) {
       if (_selectedClassSection == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a class.'), backgroundColor: Colors.red),
-        );
-        return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a class.'), backgroundColor: Colors.red),
+          );
+          return;
       }
       final parts = _selectedClassSection!.split('-');
       final className = parts[0];
@@ -182,7 +158,6 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
       _filterClassSection = null;
       _filterSubject = null;
     });
-    _updatePyqsStream();
   }
 
   @override
@@ -221,9 +196,7 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.green.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5)),
-        ],
+        boxShadow: [ BoxShadow(color: Colors.green.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5)), ],
       ),
       child: Form(
         key: _formKey,
@@ -290,7 +263,7 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 4))],
+        boxShadow: [ BoxShadow(color: Colors.green.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 4)), ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -305,10 +278,7 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
                   value: _filterClassSection,
                   items: _classSections,
                   hint: 'All Classes',
-                  onChanged: (value) {
-                    setState(() => _filterClassSection = value);
-                    _updatePyqsStream();
-                  },
+                  onChanged: (value) => setState(() => _filterClassSection = value),
                 ),
               ),
               const SizedBox(width: 16),
@@ -318,10 +288,7 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
                   value: _filterSubject,
                   items: _subjects,
                   hint: 'All Subjects',
-                  onChanged: (value) {
-                    setState(() => _filterSubject = value);
-                    _updatePyqsStream();
-                  },
+                  onChanged: (value) => setState(() => _filterSubject = value),
                 ),
               ),
             ],
@@ -370,13 +337,15 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
   }
 
   Widget _buildDropdown({required String label, String? value, required List<String> items, required String hint, required ValueChanged<String?> onChanged, FormFieldValidator<String>? validator}) {
+    final dropdownValue = value != null && items.contains(value) ? value : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black87)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          initialValue: value,
+          value: dropdownValue,
           decoration: InputDecoration(
             filled: true,
             fillColor: const Color(0xFFF7F8F9),
@@ -398,7 +367,7 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))],
+        boxShadow: [ BoxShadow(color: Colors.green.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5)), ],
       ),
       child: StreamBuilder<QuerySnapshot>(
         stream: _pyqsStream,
@@ -410,7 +379,7 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
             );
           }
           if (snapshot.hasError) {
-            return Center(child: Padding(padding: const EdgeInsets.all(20), child: Text("Error: ${snapshot.error}", style: const TextStyle(color: Colors.red))));
+            return Center(child: Padding(padding: const EdgeInsets.all(20), child: Text("An error occurred: ${snapshot.error}", style: const TextStyle(color: Colors.red))));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Column(
@@ -419,13 +388,54 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
                 const Divider(height: 1),
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 48.0),
-                  child: Center(child: Text('No PYQs match the selected filters.', style: TextStyle(color: Colors.grey))),
+                  child: Center(child: Text('You have not uploaded any PYQs yet.', style: TextStyle(color: Colors.grey))),
                 ),
               ],
             );
           }
 
-          final pyqs = snapshot.data!.docs;
+          // CLIENT-SIDE FILTERING AND SORTING
+          // 1. Filter by the current teacher ID
+          var allPyqs = snapshot.data!.docs.where((doc) {
+             final data = doc.data() as Map<String, dynamic>?;
+             return data?['teacherId'] == _teacherId;
+          }).toList();
+
+          // 2. Sort documents by 'createdAt' on the client-side
+          allPyqs.sort((a, b) {
+            final aData = a.data() as Map<String, dynamic>?;
+            final bData = b.data() as Map<String, dynamic>?;
+            final aTimestamp = aData?['createdAt'] as Timestamp?;
+            final bTimestamp = bData?['createdAt'] as Timestamp?;
+            if (bTimestamp == null) return -1;
+            if (aTimestamp == null) return 1;
+            return bTimestamp.compareTo(aTimestamp); // For descending order
+          });
+          
+          // 3. Apply the UI filters
+          final filteredPyqs = allPyqs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>?;
+            final classMatch = _filterClassSection == null || '${data?['class']}-${data?['section']}' == _filterClassSection;
+            final subjectMatch = _filterSubject == null || data?['subject'] == _filterSubject;
+            return classMatch && subjectMatch;
+          }).toList();
+
+          if (filteredPyqs.isEmpty) {
+             return Column(
+              children: [
+                _buildHistoryTableHeader(),
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 48.0),
+                  child: Center(child: Text(
+                    _filterClassSection == null && _filterSubject == null ? 'You have not uploaded any PYQs yet.' : 'No PYQs match the selected filters.',
+                     style: const TextStyle(color: Colors.grey)
+                    )
+                  ),
+                ),
+              ],
+            );
+          }
 
           return Column(
             children: [
@@ -434,10 +444,10 @@ class _ManagePyqsPageState extends State<ManagePyqsPage> {
               ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: pyqs.length,
+                itemCount: filteredPyqs.length,
                 separatorBuilder: (context, index) => const Divider(height: 1),
                 itemBuilder: (context, index) {
-                  final data = pyqs[index].data() as Map<String, dynamic>?;
+                  final data = filteredPyqs[index].data() as Map<String, dynamic>?;
                   final year = data?['year'] as String? ?? 'N/A';
                   final className = data?['class'] as String? ?? 'N/A';
                   final section = data?['section'] as String? ?? '';
