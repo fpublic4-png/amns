@@ -5,9 +5,10 @@ import 'package:percent_indicator/percent_indicator.dart';
 import 'dart:developer' as developer;
 import 'student_profile_page.dart';
 import 'notifications_popup.dart';
-import 'tests_page.dart'; // Import the new tests page
+import 'tests_page.dart';
 import 'ai_doubt_screen.dart';
-import 'student_pyqs_page.dart'; // Import the new PYQs page
+import 'student_pyqs_page.dart';
+import 'study_material_page.dart'; // Import the new Study Material page
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
@@ -131,10 +132,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
   Widget build(BuildContext context) {
     final List<Widget> widgetOptions = <Widget>[
       HomeTab(studentName: _studentName),
-      const Center(child: Text('Study Material Page')),
+      const StudyMaterialPage(), // Use the new StudyMaterialPage
       Container(), // Empty container for the AI Doubt page, as we are navigating to it.
       const TestsPage(),
-      const StudentPyqsPage(), // Use the new StudentPyqsPage
+      const StudentPyqsPage(),
     ];
 
     return Scaffold(
