@@ -199,7 +199,7 @@ class _StudentPyqsPageState extends State<StudentPyqsPage> {
         Text(label, style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black87)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: dropdownValue,
+          initialValue: dropdownValue,
           decoration: InputDecoration(
             filled: true,
             fillColor: const Color(0xFFF7F8F9),

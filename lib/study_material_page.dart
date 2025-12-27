@@ -111,17 +111,16 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
       final configData = configDoc.data()!;
       final List<String> compulsorySubjects = (configData['compulsorySubjects'] as List? ?? []).map((e) => e.toString()).toList();
 
-      // Correctly parse the 'selectiveSubjectGroups' Map from Firestore
       final dynamic selectiveGroupsData = configData['selectiveSubjectGroups'];
       if (selectiveGroupsData == null || selectiveGroupsData is! Map) {
          throw Exception("Data validation failed: 'selectiveSubjectGroups' is missing or is not a Map.");
       }
 
-      // Transform the Map from Firestore into the List of Maps the dialog expects
+      // Correctly handle the nested data structure
       final List<Map<String, dynamic>> optionalGroups = (selectiveGroupsData as Map<String, dynamic>).entries.map((entry) {
           String groupName = entry.key;
-          // The subjects are in a map-like object, so we get the values.
-          List<String> subjectsList = (entry.value as Map<String, dynamic>).values.map((s) => s.toString()).toList();
+          // The value is a List, not a Map. Correctly cast it.
+          List<String> subjectsList = (entry.value as List<dynamic>).map((s) => s.toString()).toList();
           return {
               'group_name': groupName,
               'subjects': subjectsList,
@@ -263,13 +262,13 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _showSubjectSelectionDialog,
-            child: const Text('Choose Subjects'),
              style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                 textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
+            child: const Text('Choose Subjects'),
           ),
         ],
       ),
@@ -340,11 +339,11 @@ class __SubjectSelectionDialogState extends State<_SubjectSelectionDialog> {
                         });
                       },
                     );
-                  }).toList(),
+                  }),
                   const Divider(),
                 ],
               );
-            }).toList(),
+            }),
           ],
         ),
       ),
