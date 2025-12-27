@@ -323,12 +323,12 @@ class __SubjectSelectionFormState extends State<_SubjectSelectionForm> {
                             });
                           },
                         );
-                      }).toList(),
+                      }),
                     ],
                   ),
                 ),
               );
-            }).toList(),
+            }),
           
           const SizedBox(height: 24),
           
@@ -338,13 +338,13 @@ class __SubjectSelectionFormState extends State<_SubjectSelectionForm> {
             Center(
               child: ElevatedButton(
                 onPressed: _handleSave,
-                child: const Text('Save Choices'),
                 style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 12),
                     textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
+                child: const Text('Save Choices'),
               ),
             )
         ]
