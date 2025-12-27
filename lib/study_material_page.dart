@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as developer;
+import 'package:sailearn/chapter_list_page.dart';
 
 class StudyMaterialPage extends StatefulWidget {
   const StudyMaterialPage({super.key});
@@ -94,7 +95,7 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
          throw Exception('No student record found in the database for your ID.');
       }
     } catch (e, s) {
-      developer.log('Error loading student data:', name: 'myapp.study_material', error: e, stackTrace: s);
+      developer.log('Error loading student data:', name: 'sailearn.study_material', error: e, stackTrace: s);
       if (mounted) {
         setState(() {
           _loadError = e.toString();
@@ -226,7 +227,21 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
             subtitle: const Text('View Chapters'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
-              // TODO: Navigate to chapter list page
+               if (_studentClass != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ChapterListPage(
+                      subject: subject,
+                      studentClass: _studentClass!,
+                    ),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Could not determine student class. Please try again.')),
+                );
+              }
             },
           ),
         );
