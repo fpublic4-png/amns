@@ -12,12 +12,17 @@ class StudyMaterialPage extends StatefulWidget {
 
 class _StudyMaterialPageState extends State<StudyMaterialPage> {
   bool _isLoading = true;
-  String? _documentId; // To store the actual Firestore document ID
+  String? _documentId;
   String? _studentClass;
   String? _loadError;
+  
   List<String> _subjects = [];
   bool _hasSelectedSubjects = false;
-  bool _dialogShowing = false;
+
+  // State for holding the subject choices to be displayed in the form
+  List<Map<String, dynamic>>? _optionalGroupsForSelection;
+  List<String>? _compulsorySubjectsForSelection;
+
 
   @override
   void initState() {
@@ -33,9 +38,7 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final studentId = prefs.getString('userId'); 
-      developer.log('Loading data for userId from prefs: $studentId', name: 'myapp.study_material');
-
+      final studentId = prefs.getString('userId');
       if (studentId == null) {
         throw Exception('No student ID found locally. Please log out and log back in.');
       }
@@ -49,7 +52,7 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
       if (studentQuery.docs.isNotEmpty) {
         final studentDoc = studentQuery.docs.first;
         final studentData = studentDoc.data();
-        _documentId = studentDoc.id; 
+        _documentId = studentDoc.id;
         
         final classNumber = studentData['class'];
         final section = studentData['section'];
@@ -60,9 +63,40 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
           throw Exception('Student document is missing class or section information.');
         }
 
-        if (studentData.containsKey('selected_subjects') && studentData['selected_subjects'] is List && (studentData['selected_subjects'] as List).isNotEmpty) {
-            _subjects = List<String>.from(studentData['selected_subjects']);
-            _hasSelectedSubjects = true;
+        if (studentData.containsKey('selected_subjects') && (studentData['selected_subjects'] as List).isNotEmpty) {
+           // Student has already selected subjects, so just display them.
+            setState(() {
+              _subjects = List<String>.from(studentData['selected_subjects']);
+              _hasSelectedSubjects = true;
+              _isLoading = false;
+            });
+        } else {
+          // Student has NOT selected subjects. Load the configurations to show the selection form directly.
+          final configDoc = await FirebaseFirestore.instance.collection('subject_configurations').doc(_studentClass).get();
+          if (!configDoc.exists) {
+            throw Exception('Subject configuration for class "$_studentClass" not found.');
+          }
+
+          final configData = configDoc.data()!;
+          final List<String> compulsory = (configData['compulsorySubjects'] as List? ?? []).map((e) => e.toString()).toList();
+          final dynamic selectiveGroupsData = configData['selectiveSubjectGroups'];
+          if (selectiveGroupsData == null || selectiveGroupsData is! Map) {
+             throw Exception("Data validation failed: 'selectiveSubjectGroups' is missing or is not a Map.");
+          }
+
+          final List<Map<String, dynamic>> optional = (selectiveGroupsData as Map<String, dynamic>).entries.map((entry) {
+              return {
+                  'group_name': entry.key,
+                  'subjects': (entry.value as List<dynamic>).map((s) => s.toString()).toList(),
+              };
+          }).toList();
+
+          setState(() {
+            _compulsorySubjectsForSelection = compulsory;
+            _optionalGroupsForSelection = optional;
+            _hasSelectedSubjects = false;
+            _isLoading = false;
+          });
         }
       } else {
          throw Exception('No student record found in the database for your ID.');
@@ -72,93 +106,29 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
       if (mounted) {
         setState(() {
           _loadError = e.toString();
+          _isLoading = false;
         });
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
       }
     }
   }
 
-  Future<void> _showSubjectSelectionDialog() async {
-    if (_studentClass == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cannot select subjects because the student class is not loaded.'),
-          backgroundColor: Colors.red,
-        ),
+  Future<void> _saveSubjects(List<String> newSubjects) async {
+    if (_documentId == null) {
+       ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot save subjects, student ID not found.'), backgroundColor: Colors.red),
       );
       return;
     }
-    if (_dialogShowing) return;
 
-    setState(() => _dialogShowing = true);
-
-    try {
-      final classDocId = _studentClass!;
-      final configDoc = await FirebaseFirestore.instance.collection('subject_configurations').doc(classDocId).get();
-
-      if (!mounted) return;
-
-      if (!configDoc.exists) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Subject configuration for class "$classDocId" not found.'), backgroundColor: Colors.red),
-        );
-        return;
-      }
-
-      final configData = configDoc.data()!;
-      final List<String> compulsorySubjects = (configData['compulsorySubjects'] as List? ?? []).map((e) => e.toString()).toList();
-
-      final dynamic selectiveGroupsData = configData['selectiveSubjectGroups'];
-      if (selectiveGroupsData == null || selectiveGroupsData is! Map) {
-         throw Exception("Data validation failed: 'selectiveSubjectGroups' is missing or is not a Map.");
-      }
-
-      // Correctly handle the nested data structure
-      final List<Map<String, dynamic>> optionalGroups = (selectiveGroupsData as Map<String, dynamic>).entries.map((entry) {
-          String groupName = entry.key;
-          // The value is a List, not a Map. Correctly cast it.
-          List<String> subjectsList = (entry.value as List<dynamic>).map((s) => s.toString()).toList();
-          return {
-              'group_name': groupName,
-              'subjects': subjectsList,
-          };
-      }).toList();
-
-
-      final List<String>? newSubjects = await showDialog<List<String>>(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return _SubjectSelectionDialog(compulsorySubjects: compulsorySubjects, optionalGroups: optionalGroups);
-        },
-      );
-
-      if (newSubjects != null) {
-        await FirebaseFirestore.instance.collection('students').doc(_documentId).update({
-          'selected_subjects': newSubjects,
-        });
-        
-        if(mounted) {
-          setState(() {
-            _subjects = newSubjects;
-            _hasSelectedSubjects = true;
-          });
-        }
-      }
-    } catch (e, s) {
-      developer.log('Error in subject selection dialog:', name: 'myapp.study_material', error: e, stackTrace: s);
-      if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading subject choices: $e'), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if(mounted) {
-        setState(() => _dialogShowing = false);
-      }
+    await FirebaseFirestore.instance.collection('students').doc(_documentId).update({
+      'selected_subjects': newSubjects,
+    });
+    
+    if(mounted) {
+      setState(() {
+        _subjects = newSubjects;
+        _hasSelectedSubjects = true;
+      });
     }
   }
 
@@ -172,19 +142,8 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
-          if (_hasSelectedSubjects)
-            Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: TextButton.icon(
-                onPressed: _showSubjectSelectionDialog,
-                icon: const Icon(Icons.edit_outlined, size: 16),
-                label: const Text('Edit Choices'),
-                style: TextButton.styleFrom(
-                    foregroundColor: Colors.green,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                ),
-              ),
-            ),
+          // The "Edit Choices" button is now removed to simplify the flow.
+          // It can be added back if needed.
         ],
       ),
       body: _buildBody(),
@@ -220,7 +179,16 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
     if (_hasSelectedSubjects) {
       return _buildSubjectList();
     } else {
-      return _buildInitialPrompt();
+      // Show the selection form directly on the page.
+      if (_compulsorySubjectsForSelection != null && _optionalGroupsForSelection != null) {
+        return _SubjectSelectionForm(
+          compulsorySubjects: _compulsorySubjectsForSelection!,
+          optionalGroups: _optionalGroupsForSelection!,
+          onSave: _saveSubjects,
+        );
+      } else {
+        return const Center(child: Text('Could not load subject choices to display.'));
+      }
     }
   }
 
@@ -248,46 +216,27 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
       },
     );
   }
-
-  Widget _buildInitialPrompt() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.rule_folder_outlined, size: 60, color: Colors.grey),
-          const SizedBox(height: 16),
-          const Text('Select Your Subjects', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          const Text('Please choose your optional subjects to continue.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: _showSubjectSelectionDialog,
-             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            child: const Text('Choose Subjects'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-class _SubjectSelectionDialog extends StatefulWidget {
+// A new widget to display the subject selection form directly on the page.
+class _SubjectSelectionForm extends StatefulWidget {
   final List<String> compulsorySubjects;
   final List<Map<String, dynamic>> optionalGroups;
+  final Future<void> Function(List<String> newSubjects) onSave;
 
-  const _SubjectSelectionDialog({required this.compulsorySubjects, required this.optionalGroups});
+  const _SubjectSelectionForm({
+    required this.compulsorySubjects,
+    required this.optionalGroups,
+    required this.onSave,
+  });
 
   @override
-  __SubjectSelectionDialogState createState() => __SubjectSelectionDialogState();
+  __SubjectSelectionFormState createState() => __SubjectSelectionFormState();
 }
 
-class __SubjectSelectionDialogState extends State<_SubjectSelectionDialog> {
+class __SubjectSelectionFormState extends State<_SubjectSelectionForm> {
   late final Map<String, String?> _selectedOptionalSubjects;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -295,65 +244,111 @@ class __SubjectSelectionDialogState extends State<_SubjectSelectionDialog> {
     _selectedOptionalSubjects = { for (var group in widget.optionalGroups) group['group_name'] as String : null };
   }
 
-  void _saveChoices() {
+  Future<void> _handleSave() async {
+    if (_isSaving) return;
+
     if (_selectedOptionalSubjects.values.any((v) => v == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select one subject from each group.'), backgroundColor: Colors.orange),
+        const SnackBar(content: Text('Please select one subject from each optional group.'), backgroundColor: Colors.orange),
       );
       return;
     }
+    
+    setState(() { _isSaving = true; });
+
     final List<String> finalSubjects = [...widget.compulsorySubjects, ..._selectedOptionalSubjects.values.cast<String>()];
-    Navigator.of(context).pop(finalSubjects);
+    await widget.onSave(finalSubjects);
+    
+    // The parent widget will handle the rebuild, so we don't need to set state here.
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Choose Your Subjects'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Please select one subject from each optional group.', style: TextStyle(fontSize: 14, color: Colors.grey)),
-            const SizedBox(height: 16),
-            ...widget.optionalGroups.map((group) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 40), // Add padding for the button at the bottom
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 16.0),
+              child: Text('Select Your Subjects', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            ),
+          ),
+          
+          const Text('Compulsory Subjects', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.04),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Wrap(
+              spacing: 8.0,
+              runSpacing: 4.0,
+              children: widget.compulsorySubjects.map((subject) => Chip(label: Text(subject))).toList(),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          const Text('Optional Subjects', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
+          const SizedBox(height: 8),
+          const Text('Please select one subject from each group.', style: TextStyle(fontSize: 14, color: Colors.grey)),
+          const SizedBox(height: 16),
+
+          ...widget.optionalGroups.map((group) {
               String groupName = group['group_name'] as String? ?? 'Unnamed Group';
               List<String> subjectsInGroup = (group['subjects'] as List? ?? []).map((e) => e.toString()).toList();
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                elevation: 1,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Divider(),
+                      ...subjectsInGroup.map((subject) {
+                        return RadioListTile<String>(
+                          title: Text(subject),
+                          value: subject,
+                          groupValue: _selectedOptionalSubjects[groupName],
+                          onChanged: (String? value) {
+                            setState(() {
+                              _selectedOptionalSubjects[groupName] = value;
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ],
                   ),
-                  ...subjectsInGroup.map((subject) {
-                    return RadioListTile<String>(
-                      title: Text(subject),
-                      value: subject,
-                      groupValue: _selectedOptionalSubjects[groupName],
-                      onChanged: (String? value) {
-                        setState(() {
-                          _selectedOptionalSubjects[groupName] = value;
-                        });
-                      },
-                    );
-                  }),
-                  const Divider(),
-                ],
+                ),
               );
-            }),
-          ],
-        ),
+            }).toList(),
+          
+          const SizedBox(height: 24),
+          
+          if (_isSaving)
+            const Center(child: CircularProgressIndicator())
+          else
+            Center(
+              child: ElevatedButton(
+                onPressed: _handleSave,
+                child: const Text('Save Choices'),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 12),
+                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            )
+        ]
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-        ElevatedButton(
-          onPressed: _saveChoices,
-          child: const Text('Save Choices'),
-        ),
-      ],
     );
   }
 }
