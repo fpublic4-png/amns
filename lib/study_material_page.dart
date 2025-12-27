@@ -18,8 +18,9 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
   
   List<String> _subjects = [];
   bool _hasSelectedSubjects = false;
+  bool _isEditing = false; // State to toggle between view and edit modes.
 
-  // State for holding the subject choices to be displayed in the form
+  // State for holding the subject choices configuration
   List<Map<String, dynamic>>? _optionalGroupsForSelection;
   List<String>? _compulsorySubjectsForSelection;
 
@@ -30,7 +31,7 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
     _loadStudentData();
   }
 
-  Future<void> _loadStudentData() async {
+  Future<void> _loadStudentData({bool forceReload = false}) async {
     setState(() {
       _isLoading = true;
       _loadError = null;
@@ -62,42 +63,33 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
         } else {
           throw Exception('Student document is missing class or section information.');
         }
+        
+        // Always load the subject configuration. This is needed for both initial selection and editing.
+        final configDoc = await FirebaseFirestore.instance.collection('subject_configurations').doc(_studentClass).get();
+        if (!configDoc.exists) {
+          throw Exception('Subject configuration for class "$_studentClass" not found.');
+        }
+        final configData = configDoc.data()!;
+        _compulsorySubjectsForSelection = (configData['compulsorySubjects'] as List? ?? []).map((e) => e.toString()).toList();
+        final dynamic selectiveGroupsData = configData['selectiveSubjectGroups'];
+        if (selectiveGroupsData == null || selectiveGroupsData is! Map) {
+            throw Exception("Data validation failed: 'selectiveSubjectGroups' is missing or is not a Map.");
+        }
+        _optionalGroupsForSelection = (selectiveGroupsData as Map<String, dynamic>).entries.map((entry) {
+            return {
+                'group_name': entry.key,
+                'subjects': (entry.value as List<dynamic>).map((s) => s.toString()).toList(),
+            };
+        }).toList();
+
 
         if (studentData.containsKey('selected_subjects') && (studentData['selected_subjects'] as List).isNotEmpty) {
-           // Student has already selected subjects, so just display them.
-            setState(() {
-              _subjects = List<String>.from(studentData['selected_subjects']);
-              _hasSelectedSubjects = true;
-              _isLoading = false;
-            });
+            _subjects = List<String>.from(studentData['selected_subjects']);
+            _hasSelectedSubjects = true;
         } else {
-          // Student has NOT selected subjects. Load the configurations to show the selection form directly.
-          final configDoc = await FirebaseFirestore.instance.collection('subject_configurations').doc(_studentClass).get();
-          if (!configDoc.exists) {
-            throw Exception('Subject configuration for class "$_studentClass" not found.');
-          }
-
-          final configData = configDoc.data()!;
-          final List<String> compulsory = (configData['compulsorySubjects'] as List? ?? []).map((e) => e.toString()).toList();
-          final dynamic selectiveGroupsData = configData['selectiveSubjectGroups'];
-          if (selectiveGroupsData == null || selectiveGroupsData is! Map) {
-             throw Exception("Data validation failed: 'selectiveSubjectGroups' is missing or is not a Map.");
-          }
-
-          final List<Map<String, dynamic>> optional = (selectiveGroupsData as Map<String, dynamic>).entries.map((entry) {
-              return {
-                  'group_name': entry.key,
-                  'subjects': (entry.value as List<dynamic>).map((s) => s.toString()).toList(),
-              };
-          }).toList();
-
-          setState(() {
-            _compulsorySubjectsForSelection = compulsory;
-            _optionalGroupsForSelection = optional;
             _hasSelectedSubjects = false;
-            _isLoading = false;
-          });
         }
+
       } else {
          throw Exception('No student record found in the database for your ID.');
       }
@@ -106,8 +98,11 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
       if (mounted) {
         setState(() {
           _loadError = e.toString();
-          _isLoading = false;
         });
+      }
+    } finally {
+       if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -128,6 +123,7 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
       setState(() {
         _subjects = newSubjects;
         _hasSelectedSubjects = true;
+        _isEditing = false; // Exit editing mode after saving.
       });
     }
   }
@@ -137,13 +133,28 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0FAF6),
       appBar: AppBar(
-        title: const Text('Study Material', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: Text(
+          _isEditing ? 'Edit Your Subjects' : 'Study Material', 
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
-          // The "Edit Choices" button is now removed to simplify the flow.
-          // It can be added back if needed.
+          // Show "Edit Choices" button only when subjects are selected and not in editing mode.
+          if (_hasSelectedSubjects && !_isEditing)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: TextButton.icon(
+                onPressed: () => setState(() => _isEditing = true),
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: const Text('Edit Choices'),
+                style: TextButton.styleFrom(
+                    foregroundColor: Colors.green,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                ),
+              ),
+            ),
         ],
       ),
       body: _buildBody(),
@@ -168,7 +179,7 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
               Text(_loadError!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
                const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _loadStudentData,
+                onPressed: () => _loadStudentData(forceReload: true),
                 child: const Text('Retry'),
               ),
             ],
@@ -176,20 +187,26 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
         ),
       );
     }
-    if (_hasSelectedSubjects) {
-      return _buildSubjectList();
-    } else {
-      // Show the selection form directly on the page.
+    
+    // If we are editing, or if subjects have never been selected, show the form.
+    if (_isEditing || !_hasSelectedSubjects) {
       if (_compulsorySubjectsForSelection != null && _optionalGroupsForSelection != null) {
         return _SubjectSelectionForm(
           compulsorySubjects: _compulsorySubjectsForSelection!,
           optionalGroups: _optionalGroupsForSelection!,
+          initiallySelectedSubjects: _subjects, // Pre-fill with current subjects
           onSave: _saveSubjects,
+          onCancel: _hasSelectedSubjects // Only show cancel button if they've selected subjects before
+            ? () => setState(() => _isEditing = false)
+            : null,
         );
       } else {
         return const Center(child: Text('Could not load subject choices to display.'));
       }
     }
+    
+    // Otherwise, show the list of selected subjects.
+    return _buildSubjectList();
   }
 
   Widget _buildSubjectList() {
@@ -218,16 +235,20 @@ class _StudyMaterialPageState extends State<StudyMaterialPage> {
   }
 }
 
-// A new widget to display the subject selection form directly on the page.
+// A widget to display the subject selection form.
 class _SubjectSelectionForm extends StatefulWidget {
   final List<String> compulsorySubjects;
   final List<Map<String, dynamic>> optionalGroups;
+  final List<String>? initiallySelectedSubjects;
   final Future<void> Function(List<String> newSubjects) onSave;
+  final VoidCallback? onCancel;
 
   const _SubjectSelectionForm({
     required this.compulsorySubjects,
     required this.optionalGroups,
+    this.initiallySelectedSubjects,
     required this.onSave,
+    this.onCancel,
   });
 
   @override
@@ -242,6 +263,20 @@ class __SubjectSelectionFormState extends State<_SubjectSelectionForm> {
   void initState() {
     super.initState();
     _selectedOptionalSubjects = { for (var group in widget.optionalGroups) group['group_name'] as String : null };
+    
+    // Pre-fill selections if in edit mode.
+    if (widget.initiallySelectedSubjects != null) {
+      for (final group in widget.optionalGroups) {
+        final groupName = group['group_name'] as String;
+        final subjectsInGroup = group['subjects'] as List<String>;
+        for (final selected in widget.initiallySelectedSubjects!) {
+          if (subjectsInGroup.contains(selected)) {
+            _selectedOptionalSubjects[groupName] = selected;
+            break;
+          }
+        }
+      }
+    }
   }
 
   Future<void> _handleSave() async {
@@ -259,22 +294,24 @@ class __SubjectSelectionFormState extends State<_SubjectSelectionForm> {
     final List<String> finalSubjects = [...widget.compulsorySubjects, ..._selectedOptionalSubjects.values.cast<String>()];
     await widget.onSave(finalSubjects);
     
-    // The parent widget will handle the rebuild, so we don't need to set state here.
+    if (!mounted) return;
+    setState(() { _isSaving = false; });
   }
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 40), // Add padding for the button at the bottom
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 16.0),
-              child: Text('Select Your Subjects', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          if (widget.onCancel == null) // Only show header if it's the first time
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 16.0),
+                child: Text('Select Your Subjects', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              ),
             ),
-          ),
           
           const Text('Compulsory Subjects', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
           const SizedBox(height: 8),
@@ -335,19 +372,28 @@ class __SubjectSelectionFormState extends State<_SubjectSelectionForm> {
           if (_isSaving)
             const Center(child: CircularProgressIndicator())
           else
-            Center(
-              child: ElevatedButton(
-                onPressed: _handleSave,
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 12),
-                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (widget.onCancel != null)
+                  TextButton(
+                    onPressed: widget.onCancel,
+                    child: const Text('Cancel'),
+                  ),
+                const SizedBox(width: 16),
+                ElevatedButton(
+                  onPressed: _handleSave,
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 12),
+                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  child: const Text('Save Choices'),
                 ),
-                child: const Text('Save Choices'),
-              ),
+              ],
             )
-        ]
+        ],
       ),
     );
   }
