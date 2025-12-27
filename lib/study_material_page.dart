@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as developer;
-import 'package:sailearn/chapter_list_page.dart';
+import 'chapter_list_page.dart';
 
 class StudyMaterialPage extends StatefulWidget {
   const StudyMaterialPage({super.key});
